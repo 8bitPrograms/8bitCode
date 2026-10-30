@@ -94,7 +94,6 @@ jobs:
           New-Item -ItemType Directory -Force -Path build | Out-Null
           python -m unittest discover -s scripts/ci/tests -v *> build/win-authoring-log.txt
           $code = $LASTEXITCODE
-          Get-Content build/win-authoring-log.txt
           if ($code -ne 0) {
             $hits = @(Select-String -Path build/win-authoring-log.txt -Pattern 'AssertionError|FAIL:|Error|Exception|throw' | Select-Object -Last 8 | ForEach-Object { $_.Line.Trim() })
             if (-not $hits) { $hits = @(Get-Content build/win-authoring-log.txt -Tail 8) }
@@ -132,7 +131,6 @@ jobs:
           python scripts/ci/build-qt.py --prefix "tooling/qt-sdk-$RELEASE_ARCH" --jobs 2 > build/qt-sdk-log.txt 2>&1
           code=$?
           set -e
-          tail -n 80 build/qt-sdk-log.txt
           if [ "$code" -ne 0 ]; then
             msg=$(grep -E 'CMake Error|ERROR:|Could not find|Feature |ValueError|Traceback|Error:' build/qt-sdk-log.txt | tail -n 8 | tr '\n' '|' | tr '\r' ' ')
             if [ -z "$msg" ]; then msg=$(tail -n 8 build/qt-sdk-log.txt | tr '\n' '|' | tr '\r' ' '); fi
@@ -204,7 +202,6 @@ jobs:
             build/ci-*/tests/*.txt
             build/ci-*/tests/*.xml
             build/package-smoke-*
-            build/package-step.log
             build/win-authoring-log.txt
             build/qt-sdk-log.txt
           if-no-files-found: ignore

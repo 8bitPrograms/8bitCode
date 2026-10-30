@@ -17,14 +17,11 @@ def run(args,**kw):
     # Hosted logs are not readable without admin. Keep the failing command tail in one annotation.
     if any(key in kw for key in ("stdout","stderr","capture_output")):return raw_run(args,**kw)
     kw=dict(kw);kw.pop("check",None);command=[str(a) for a in args]
-    log=ROOT/"build"/"package-step.log";log.parent.mkdir(parents=True,exist_ok=True)
     try:proc=subprocess.run(command,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,encoding="utf-8",errors="replace",**kw)
     except subprocess.TimeoutExpired as exc:
         output=exc.stdout.decode("utf-8","replace") if isinstance(exc.stdout,bytes) else (exc.stdout or "")
-        with log.open("a",encoding="utf-8",errors="replace") as handle:handle.write(f"\n$ {' '.join(command)}\n{output}\n")
         _hosted_error(output or str(exc));raise
     output=proc.stdout or "";sys.stdout.write(output);sys.stdout.flush()
-    with log.open("a",encoding="utf-8",errors="replace") as handle:handle.write(f"\n$ {' '.join(command)}\n{output}")
     if proc.returncode:_hosted_error(output or f"exit {proc.returncode}");raise subprocess.CalledProcessError(proc.returncode,command)
     return proc
 def openssh_windows(stage,cpu,build_layout=False):
@@ -61,7 +58,7 @@ def smoke(stage,system):
     args=[exe,"--smoke-test",out] if app=="8bitPad" else [exe,"--screenshot",out/"shell.png","--window-size","1280x800"]
     run(args,env=env,timeout=600)
 def main():
-    (ROOT/"build").mkdir(exist_ok=True);(ROOT/"build"/"package-step.log").write_text("")
+    (ROOT/"build").mkdir(exist_ok=True)
     p=argparse.ArgumentParser();p.add_argument("--qt-root",required=True);p.add_argument("--jobs",type=int,default=2);p.add_argument("--build-only",action="store_true");a=p.parse_args()
     c=config();cpu=arch();system={"Windows":"windows","Linux":"linux","Darwin":"macos"}[platform.system()]
     build=ROOT/"build"/f"ci-{system}-{cpu}";sdk=Path(a.qt_root).resolve();stage=ROOT/"build"/f"stage-{system}-{cpu}";out=ROOT/"dist/release";out.mkdir(parents=True,exist_ok=True)

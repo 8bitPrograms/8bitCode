@@ -191,4 +191,4 @@ by default.
 - Report access-denied errors separately from missing prerequisites.
 
 Windows x64 is locally exercised; hosted ARM/Linux/macOS and experimental 32-bit
-release checks are tracked in [RELEASE-VALIDATION.md](RELEASE-VALIDATION.md).
+release checks are tracked outside this repository.

@@ -5,8 +5,7 @@ Local build, test, portable launch and troubleshooting instructions: [doc/Buildi
 
 Run `8p .` or `8p some.txt` from your terminal after Windows installation. Optional version checks and updates are in **Help > Updates**; automatic installation starts disabled. See [commands and updates](doc/Updates.md).
 
-Cross-platform release builds, bundled runtimes, curl installation, native packages and repository maintenance are documented in [doc/RELEASING.md](doc/RELEASING.md). Hosted platform checks remain pending; see [doc/RELEASE-VALIDATION.md](doc/RELEASE-VALIDATION.md).
-
+Cross-platform release builds, bundled runtimes, curl installation, native packages and repository maintenance are documented in [doc/RELEASING.md](doc/RELEASING.md).
 
 A native desktop text editor with a familiar Notepad++ workflow, Vi-style editing and 29 open-source color themes. Built in C++20 with Qt 6 and Scintilla/Lexilla; no browser runtime.
 
@@ -66,7 +65,7 @@ From a native Windows terminal in the repository root:
 
 The helper initializes Visual Studio C++ Build Tools and locates its bundled CMake/Ninja without requiring them on PATH. It discovers Qt through explicit arguments, environment variables, ignored `tooling/windows.local.json`, repo-local tooling, or a sibling SDK. A separate matching Core5Compat module can be kept in `tooling/qt-compat`. The pinned bundled dependency sources are used by default.
 
-The executable is `build/windows-release/8bitPad.exe`. `-Package` creates a fresh timestamped portable folder under `dist`, retaining existing packages and profiles. Full prerequisites, local configuration and options are in [doc/BUILDING-WINDOWS.md](doc/BUILDING-WINDOWS.md). MSI creation and GitHub release preparation are in [doc/RELEASING.md](doc/RELEASING.md). Instructions for coding agents are in [AGENTS.md](AGENTS.md).
+The executable is `build/windows-release/8bitPad.exe`. `-Package` creates a fresh timestamped portable folder under `dist`, retaining existing packages and profiles. Full prerequisites, local configuration and options are in [doc/BUILDING-WINDOWS.md](doc/BUILDING-WINDOWS.md). MSI creation and GitHub release preparation are in [doc/RELEASING.md](doc/RELEASING.md).
 
 ## Build on Linux
 
@@ -85,6 +84,6 @@ For a separate SDK, pass `-DCMAKE_PREFIX_PATH=/path/to/Qt`. The build helper run
 
 ## Source and licensing
 
-See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [doc/UPSTREAM_README.md](doc/UPSTREAM_README.md). Dependencies are pinned in `thirdparty/CMakeLists.txt`; bundled component source remains in `thirdparty`. Additional pinned dependency sources and offline build overrides are included in `dependency-sources`. Keep corresponding source and notices with redistributed binaries. Actual platform checks and their limits are recorded in [doc/VALIDATION.md](doc/VALIDATION.md).
+See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The upstream project is [Notepad Next](https://github.com/dail8859/NotepadNext). Dependencies are pinned in `thirdparty/CMakeLists.txt`; bundled component source remains in `thirdparty`. Additional pinned dependency sources and offline build overrides are included in `dependency-sources`. Keep corresponding source and notices with redistributed binaries.
 
 This version does not provide Notepad++ Windows DLL plugin compatibility, a complete Vim engine, complete UDL/settings import, or every Notepad++ preference. It is a working cross-platform editor with documented coverage, not a claim of full binary or behavior parity.

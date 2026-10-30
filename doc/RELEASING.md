@@ -113,7 +113,7 @@ The two repositories have independent source and Git history. Build products, lo
 - Qt deployment tools: https://doc.qt.io/qt-6/qt-generate-deploy-app-script.html
 - Qt QML deployment: https://doc.qt.io/qt-6/qt-generate-deploy-qml-app-script.html
 
-Local checks and known limitations are recorded in RELEASE-VALIDATION.md. Preparing files locally is not evidence that hosted Windows ARM, Linux, macOS, emulated 32-bit, signing, or distribution install tests have passed.
+Local checks and known limitations are recorded in the release validation log, kept outside this repository. Preparing files locally is not evidence that hosted Windows ARM, Linux, macOS, emulated 32-bit, signing, or distribution install tests have passed.
 
 ## Windows Start menu and removal
 

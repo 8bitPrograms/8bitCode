@@ -36,4 +36,4 @@ Pinned ADS, SingleApplication and editorconfig sources are included in `dependen
 
 Build output: `build/windows-release/8bitPad.exe`. Test output: `build/windows-release/tests/*.xml` and `tests/smoke/smoke-results.json`. `-Package` creates a new timestamped folder under `dist`; select a fresh custom destination with `-PackageDirectory dist/my-new-package`. Existing packages and profiles are retained. Run `Start-Portable.cmd` from the complete packaged folder.
 
-If another agent reports that tools are absent, provide the `-Diagnose` output and repository `AGENTS.md`. An executable absent from PATH may still be installed. A sandbox permission denial does not establish that a directory is missing.
+If another agent reports that tools are absent, provide the `-Diagnose` output. An executable absent from PATH may still be installed. A sandbox permission denial does not establish that a directory is missing.

@@ -52,4 +52,4 @@ Linux portable archives include Start-Portable.sh; macOS archives include Start-
 
 Qt and app runtime libraries are packaged with the application. A supported graphical OS is still required: Linux x64/ARM64 uses a glibc 2.35 baseline; experimental 32-bit Linux uses 2.36. Kernel/graphics services remain part of the OS. macOS users need no Homebrew or SDK.
 
-Current signing and tested-platform status are in RELEASE-VALIDATION.md. Full build, release, architecture and migration instructions are in RELEASING.md.
+Current signing and tested-platform status are tracked outside this repository. Full build, release, architecture and migration instructions are in RELEASING.md.
