@@ -10,6 +10,10 @@
 #include "SciLexer.h"
 
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 #include <QStringConverter>
 #include <QTemporaryDir>
 #include <QTextCodec>
@@ -89,32 +93,78 @@ private slots:
     {
         QVERIFY(QFile::exists(QStringLiteral(":/languages/cpp.lua")));
         QVERIFY(QFile::exists(QStringLiteral(":/languages/python.lua")));
-        QVERIFY(!readFile(QStringLiteral(":/themes/catalog.json")).isEmpty());
         QVERIFY(QFile::exists(QStringLiteral(":/themes/NOTICES.md")));
+    }
+
+    void themeCatalogIsValid()
+    {
+        QJsonParseError error;
+        const QJsonDocument catalog = QJsonDocument::fromJson(readFile(QStringLiteral(":/themes/catalog.json")), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        QVERIFY(catalog.isArray());
+        QVERIFY(!catalog.array().isEmpty());
+        QSet<QString> ids;
+        for (const QJsonValue &theme : catalog.array()) {
+            const QString id = theme.toObject().value(QStringLiteral("id")).toString();
+            QVERIFY2(!id.isEmpty(), "theme without an id");
+            QVERIFY2(!ids.contains(id), qPrintable(QStringLiteral("duplicate theme id ") + id));
+            ids.insert(id);
+        }
+        QVERIFY(ids.contains(QStringLiteral("classic-light"))); // ThemeManager's default
+    }
+
+    void sourceTabIsHighlighted_data()
+    {
+        using Styles = QList<QPair<QByteArray, int>>;
+        QTest::addColumn<QString>("fileName");
+        QTest::addColumn<QString>("language");
+        QTest::addColumn<QByteArray>("lexer");
+        QTest::addColumn<QByteArray>("comment");
+        QTest::addColumn<QByteArray>("source");
+        QTest::addColumn<Styles>("styles");
+        QTest::addColumn<int>("keywordStyle");
+
+        QTest::newRow("cpp") << QStringLiteral("main.cpp") << QStringLiteral("C++") << QByteArray("cpp") << QByteArray("// ")
+            << QByteArray("// synthetic fixture\nint main() { return 42; }\n")
+            << Styles {{"//", SCE_C_COMMENTLINE}, {"return", SCE_C_WORD}, {"int", SCE_C_WORD2}, {"42", SCE_C_NUMBER}}
+            << int(SCE_C_WORD);
+        QTest::newRow("python") << QStringLiteral("tool.py") << QStringLiteral("Python") << QByteArray("python") << QByteArray("# ")
+            << QByteArray("# synthetic fixture\ndef answer():\n    return 'x', 42\n")
+            << Styles {{"#", SCE_P_COMMENTLINE}, {"def", SCE_P_WORD}, {"answer", SCE_P_DEFNAME}, {"'x'", SCE_P_CHARACTER}, {"42", SCE_P_NUMBER}}
+            << int(SCE_P_WORD);
+        QTest::newRow("json") << QStringLiteral("data.json") << QStringLiteral("JSON") << QByteArray("json") << QByteArray()
+            << QByteArray("{\n  \"name\": \"synthetic\",\n  \"count\": 42,\n  \"ok\": true\n}\n")
+            << Styles {{"\"name\"", SCE_JSON_PROPERTYNAME}, {"\"synthetic\"", SCE_JSON_STRING}, {"42", SCE_JSON_NUMBER}, {"true", SCE_JSON_KEYWORD}}
+            << int(SCE_JSON_KEYWORD);
     }
 
     void sourceTabIsHighlighted()
     {
+        using Styles = QList<QPair<QByteArray, int>>;
+        QFETCH(QString, fileName);
+        QFETCH(QString, language);
+        QFETCH(QByteArray, lexer);
+        QFETCH(QByteArray, comment);
+        QFETCH(QByteArray, source);
+        QFETCH(Styles, styles);
+        QFETCH(int, keywordStyle);
+
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
-        const QString path = directory.filePath(QStringLiteral("main.cpp"));
-        const QByteArray source("// synthetic fixture\nint main() { return 42; }\n");
+        const QString path = directory.filePath(fileName);
         QVERIFY(writeFile(path, source));
         std::unique_ptr<ScintillaNext> editor(ScintillaNext::fromFile(path));
         QVERIFY(editor);
 
-        const QString language = languageForExtension(editor->getFileInfo().suffix().toLower());
-        QCOMPARE(language, QStringLiteral("C++"));
+        QCOMPARE(languageForExtension(editor->getFileInfo().suffix().toLower()), language);
         applyLanguage(editor.get(), language);
         editor->colourise(0, -1);
 
-        QCOMPARE(editor->lexerLanguage(), QByteArray("cpp"));
-        QCOMPARE(editor->languageSingleLineComment, QByteArray("// "));
-        QCOMPARE(editor->styleAt(source.indexOf("//")), sptr_t(SCE_C_COMMENTLINE));
-        QCOMPARE(editor->styleAt(source.indexOf("return")), sptr_t(SCE_C_WORD));
-        QCOMPARE(editor->styleAt(source.indexOf("int")), sptr_t(SCE_C_WORD2));
-        QCOMPARE(editor->styleAt(source.indexOf("42")), sptr_t(SCE_C_NUMBER));
-        QVERIFY(editor->styleFore(SCE_C_WORD) != editor->styleFore(SCE_C_DEFAULT));
+        QCOMPARE(editor->lexerLanguage(), lexer);
+        QCOMPARE(editor->languageSingleLineComment, comment);
+        for (const auto &style : styles)
+            QVERIFY2(editor->styleAt(source.indexOf(style.first)) == style.second, style.first.constData());
+        QVERIFY(editor->styleFore(keywordStyle) != editor->styleFore(0));
         QCOMPARE(contents(*editor), source); // styling never touches the buffer
         QVERIFY(!editor->modify());
     }
@@ -237,6 +287,46 @@ private slots:
         QCOMPARE(contents(*editor), text.toUtf8());
         QCOMPARE(editor->save(), QFileDevice::NoError);
         QCOMPARE(readFile(path), original);
+    }
+
+    void recoveryCopyIsUtf8WithOriginalEol_data()
+    {
+        QTest::addColumn<QByteArray>("original");
+        QTest::addColumn<QByteArray>("expectedRecovery");
+
+        // The recovery copy is the raw UTF-8 buffer with no BOM; the session
+        // stores the encoding separately. EOL bytes are kept as loaded.
+        QTest::newRow("utf8-bom-crlf")
+            << QByteArray::fromHex("efbbbf") + QByteArray("caf\xc3\xa9 = 1\r\nx = 2\r\n")
+            << QByteArray("caf\xc3\xa9 = 1\r\nx = 42\r\n");
+        QTest::newRow("utf16le-bom-lf")
+            << QByteArray::fromHex("fffe") + QByteArray(QStringEncoder(QStringConverter::Utf16LE)(QStringLiteral("café = 1\nx = 2\n")))
+            << QByteArray("caf\xc3\xa9 = 1\nx = 42\n");
+    }
+
+    void recoveryCopyIsUtf8WithOriginalEol()
+    {
+        QFETCH(QByteArray, original);
+        QFETCH(QByteArray, expectedRecovery);
+
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("notes.py"));
+        const QString recoveryPath = directory.filePath(QStringLiteral("recovery.bin"));
+        QVERIFY(writeFile(path, original));
+        std::unique_ptr<ScintillaNext> editor(ScintillaNext::fromFile(path));
+        QVERIFY(editor);
+        const QString encodingName = editor->encodingName();
+
+        editor->insertText(contents(*editor).indexOf("2"), "4");
+        QVERIFY(editor->modify());
+        QCOMPARE(editor->saveRecoveryCopyAs(recoveryPath), QFileDevice::NoError);
+
+        QCOMPARE(readFile(recoveryPath), expectedRecovery);
+        QCOMPARE(readFile(path), original);
+        QVERIFY(editor->modify());
+        QCOMPARE(editor->getFilePath(), path);
+        QCOMPARE(editor->encodingName(), encodingName);
     }
 };
 
