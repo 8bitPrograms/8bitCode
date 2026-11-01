@@ -31,9 +31,9 @@ int main(int argc, char *argv[])
     qSetMessagePattern("[%{time process}] %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}: %{message}");
 
     // Set these since other parts of the app references these
-    QApplication::setOrganizationName("8bitPad");
-    QApplication::setApplicationName("8bitPad");
-    QGuiApplication::setApplicationDisplayName("8bitPad");
+    QApplication::setOrganizationName("8bitCode");
+    QApplication::setApplicationName("8bitCode");
+    QGuiApplication::setApplicationDisplayName("8bitCode");
     QGuiApplication::setApplicationVersion(APP_VERSION);
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
         else if (arg == "--smoke-test") {
             const QString output = QDir(QString::fromLocal8Bit(argv[++i])).absolutePath();
             qputenv("BIT8PAD_PROFILE", QDir(output).filePath("profile").toUtf8());
-            QApplication::setApplicationName("8bitPad-Smoke");
+            QApplication::setApplicationName("8bitCode-Smoke");
         }
     }
 

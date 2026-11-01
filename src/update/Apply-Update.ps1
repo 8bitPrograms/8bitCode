@@ -4,7 +4,7 @@ param(
  [Parameter(Mandatory=$true)][string]$Package,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$Sha256,
  [Parameter(Mandatory=$true)][int]$ParentPid,
- [Parameter(Mandatory=$true)][ValidateSet('8bitPad','8bitShell')][string]$Application,
+ [Parameter(Mandatory=$true)][ValidateSet('8bitCode','8bitShell')][string]$Application,
  [Parameter(Mandatory=$true)][string]$Executable,
  [switch]$Restart
 )

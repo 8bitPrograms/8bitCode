@@ -60,25 +60,25 @@ $output = Resolve-RepoPath $OutputMsi
 if ([IO.Path]::GetExtension($output) -ine '.msi') { throw 'OutputMsi must name an .msi file.' }
 if ($output.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'OutputMsi must be outside the portable package.' }
 if (Test-Path -LiteralPath $output) { throw "Refusing to overwrite existing MSI: $output" }
-$required = @('8bitPad.exe', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'qt.conf', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'SHA256SUMS.txt')
+$required = @('8bitCode.exe', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'qt.conf', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'SHA256SUMS.txt')
 foreach ($relative in $required) {
     if (!(Test-Path -LiteralPath (Join-Path $package $relative) -PathType Leaf)) { throw "Missing required package file: $relative" }
 }
-if (!(Test-Path -LiteralPath (Join-Path $package '8bitPadFileIcons.dll') -PathType Leaf)) {
-    throw 'Missing required package file: 8bitPadFileIcons.dll'
+if (!(Test-Path -LiteralPath (Join-Path $package '8bitCodeFileIcons.dll') -PathType Leaf)) {
+    throw 'Missing required package file: 8bitCodeFileIcons.dll'
 }
 foreach ($relative in @('licenses', 'theme-licenses')) {
     if (!(Test-Path -LiteralPath (Join-Path $package $relative) -PathType Container)) { throw "Missing package license directory: $relative" }
 }
-$exe = [IO.File]::OpenRead((Join-Path $package '8bitPad.exe'))
+$exe = [IO.File]::OpenRead((Join-Path $package '8bitCode.exe'))
 $reader = New-Object IO.BinaryReader($exe)
 try {
-    if ($reader.ReadUInt16() -ne 0x5a4d) { throw '8bitPad.exe is not a PE executable.' }
+    if ($reader.ReadUInt16() -ne 0x5a4d) { throw '8bitCode.exe is not a PE executable.' }
     $exe.Position = 0x3c
     $offset = $reader.ReadInt32()
     if ($offset -lt 64 -or $offset -gt ($exe.Length - 6)) { throw 'Invalid PE header.' }
     $exe.Position = $offset
-    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) { throw '8bitPad.exe must be a Windows x64 executable.' }
+    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) { throw '8bitCode.exe must be a Windows x64 executable.' }
 } finally { $reader.Dispose(); $exe.Dispose() }
 
 # Recheck the portable package's complete included inventory. A changed or extra
@@ -128,8 +128,8 @@ $outputParent = Split-Path -Parent $output
 $work = $output + '.work-' + [guid]::NewGuid().ToString('N')
 [IO.Directory]::CreateDirectory($work) | Out-Null
 $utf8 = New-Object Text.UTF8Encoding($false)
-$source = Join-Path $work '8bitPad.wxs'
-Copy-Item -LiteralPath (Join-Path $repo 'deploy/windows/8bitPad.wxs') -Destination $source
+$source = Join-Path $work '8bitCode.wxs'
+Copy-Item -LiteralPath (Join-Path $repo 'deploy/windows/8bitCode.wxs') -Destination $source
 $license = [IO.File]::ReadAllText((Join-Path $package 'LICENSE'))
 $license = $license.Replace('\', '\\').Replace('{', '\{').Replace('}', '\}').Replace("`r", '').Replace("`n", '\par ')
 $licensePath = Join-Path $work 'License.rtf'
@@ -159,7 +159,7 @@ foreach ($item in $inventory) {
     $fileId = 'F_' + (Get-StableHash ('file/' + $item.path)).Substring(0,32)
     $lines.Add(('<DirectoryRef Id="{0}"><Component Id="{1}" Guid="{2}" Win64="yes">' -f $directories[$parent], $item.component, $item.guid))
     $lines.Add(('<File Id="{0}" Source="$(var.PackageDirectory)\{1}" />' -f $fileId, (Escape-Wix $item.path.Replace('/', '\'))))
-    $lines.Add(('<RegistryValue Root="HKCU" Key="Software\8bitPad\Installer\Components" Name="{0}" Type="integer" Value="1" KeyPath="yes" />' -f $item.component))
+    $lines.Add(('<RegistryValue Root="HKCU" Key="Software\8bitCode\Installer\Components" Name="{0}" Type="integer" Value="1" KeyPath="yes" />' -f $item.component))
     $lines.Add('</Component></DirectoryRef>')
     $componentIds.Add($item.component)
 }
@@ -169,7 +169,7 @@ foreach ($relative in @($directories.Keys | Sort-Object)) {
     # RemoveFolder removes only an empty installer directory. No RemoveFile *,
     # profile path, AppData settings path, or recursive cleanup is authored.
     $lines.Add(('<RemoveFolder Id="R_{0}" On="uninstall" />' -f $id))
-    $lines.Add(('<RegistryValue Root="HKCU" Key="Software\8bitPad\Installer\Components" Name="{0}" Type="integer" Value="1" KeyPath="yes" />' -f $id))
+    $lines.Add(('<RegistryValue Root="HKCU" Key="Software\8bitCode\Installer\Components" Name="{0}" Type="integer" Value="1" KeyPath="yes" />' -f $id))
     $lines.Add('</Component></DirectoryRef>')
     $componentIds.Add($id)
 }
@@ -186,14 +186,14 @@ if (!$GenerateOnly) {
     $definitions = @(('-dProductVersion=' + $Version), ('-dProductCode=' + $productCode), ('-dPackageDirectory=' + $package), ('-dProductIcon=' + (Join-Path $repo 'icon/8bitPad.ico')), ('-dLicenseRtf=' + $licensePath))
     # Explicit output files avoid a quoted trailing directory backslash, which
     # Windows PowerShell 5.1 otherwise passes incorrectly to native programs.
-    foreach ($unit in @(@{ source=$source; output=(Join-Path $work '8bitPad.wixobj') }, @{ source=$payloadSource; output=(Join-Path $work 'Payload.wixobj') })) {
+    foreach ($unit in @(@{ source=$source; output=(Join-Path $work '8bitCode.wixobj') }, @{ source=$payloadSource; output=(Join-Path $work 'Payload.wixobj') })) {
         $candleArgs = @('-nologo', '-arch', 'x64', '-ext', (Join-Path $wixBin 'WixUIExtension.dll')) + $definitions + @('-out', $unit.output, $unit.source)
         & (Join-Path $wixBin 'candle.exe') @candleArgs 2>&1 | Tee-Object -FilePath (Join-Path $work 'candle.log') -Append | Write-Host
         if ($LASTEXITCODE) { throw "WiX compile failed ($LASTEXITCODE). See $work" }
     }
     # MSI ICE validation remains enabled. Failures are errors, not suppressed.
-    $stagedMsi = Join-Path $work '8bitPad.msi'
-    $lightArgs = @('-nologo', '-ext', (Join-Path $wixBin 'WixUIExtension.dll'), '-cultures:en-us', '-out', $stagedMsi, (Join-Path $work '8bitPad.wixobj'), (Join-Path $work 'Payload.wixobj'))
+    $stagedMsi = Join-Path $work '8bitCode.msi'
+    $lightArgs = @('-nologo', '-ext', (Join-Path $wixBin 'WixUIExtension.dll'), '-cultures:en-us', '-out', $stagedMsi, (Join-Path $work '8bitCode.wixobj'), (Join-Path $work 'Payload.wixobj'))
     & (Join-Path $wixBin 'light.exe') @lightArgs 2>&1 | Tee-Object -FilePath (Join-Path $work 'light.log') | Write-Host
     if ($LASTEXITCODE) { throw "WiX link/validation failed ($LASTEXITCODE). See $work" }
     if (!(Test-Path -LiteralPath $stagedMsi -PathType Leaf)) { throw 'WiX did not produce the requested MSI.' }

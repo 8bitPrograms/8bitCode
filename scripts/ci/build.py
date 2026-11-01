@@ -55,7 +55,7 @@ def smoke(stage,system):
         env["QT_QPA_FONTDIR"]=str(Path(os.environ["SystemRoot"])/"Fonts")
     elif system=="macos":exe=stage/(app+".app")/"Contents/MacOS"/app
     else:exe=stage/app;env["PATH"]="/usr/bin:/bin"
-    args=[exe,"--smoke-test",out] if app=="8bitPad" else [exe,"--screenshot",out/"shell.png","--window-size","1280x800"]
+    args=[exe,"--smoke-test",out] if app=="8bitCode" else [exe,"--screenshot",out/"shell.png","--window-size","1280x800"]
     run(args,env=env,timeout=600)
 def main():
     (ROOT/"build").mkdir(exist_ok=True)
@@ -65,7 +65,7 @@ def main():
     args=["cmake","-S",ROOT,"-B",build,"-G","Ninja","-DCMAKE_BUILD_TYPE=Release","-DCMAKE_TRY_COMPILE_CONFIGURATION=Release",f"-DCMAKE_PREFIX_PATH={sdk}","-DBUILD_TESTING=ON",f'-D{c["environment"]}_BUNDLE_RUNTIME=ON']
     if system=="linux":args+=["-DCMAKE_CXX_COMPILER=g++-12"]
     if system=="macos":args+=[f'-DCMAKE_OSX_DEPLOYMENT_TARGET={c["macosMinimum"]}']
-    if c["app"]=="8bitPad":
+    if c["app"]=="8bitCode":
         for n,d in [("ads","ads"),("SingleApplication","singleapplication"),("editorconfig_core_qt","editorconfig-core-qt")]:args+=[f"-DCPM_{n}_SOURCE={ROOT/'dependency-sources'/d}"]
         args+=["-DFETCHCONTENT_FULLY_DISCONNECTED=ON"]
     else:

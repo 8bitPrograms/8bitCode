@@ -2208,7 +2208,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     if (!sessionManager->saveSession(this)) {
         QMessageBox::critical(this, tr("Recovery could not be saved"),
-            tr("8bitPad could not save the recovery session. Your documents are still open. Save them to disk before exiting."));
+            tr("8bitCode could not save the recovery session. Your documents are still open. Save them to disk before exiting."));
         event->ignore();
         return;
     }

@@ -23,7 +23,7 @@ private slots:
         QVERIFY(QDir().mkpath(cwd));
         const QString alias = QDir(bin).filePath("8p.exe");
         QVERIFY(QFile::copy(QDir(QCoreApplication::applicationDirPath()).filePath("8p.exe"), alias));
-        QVERIFY(QFile::copy(QCoreApplication::applicationFilePath(), QDir(bin).filePath("8bitPad.exe")));
+        QVERIFY(QFile::copy(QCoreApplication::applicationFilePath(), QDir(bin).filePath("8bitCode.exe")));
         const QString report = fixture.filePath("captured.json");
         const QStringList expected{".", "some.txt", "space & % ! ^ name.txt",
             QString::fromUtf8("T\xC3\xBCrk\xC3\xA7" "e.txt"), "", "quoted\"name", "trailing\\", "--", "-name.txt"};

@@ -92,12 +92,12 @@ const QList<EditorTheme> &ThemeManager::catalog()
     static const QList<EditorTheme> themes = [] {
         QFile file(QStringLiteral(":/themes/catalog.json"));
         if (!file.open(QIODevice::ReadOnly))
-            qFatal("8bitPad theme catalog is missing from the application resources");
+            qFatal("8bitCode theme catalog is missing from the application resources");
 
         QJsonParseError parseError;
         const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
         if (parseError.error != QJsonParseError::NoError || !document.isArray())
-            qFatal("Invalid 8bitPad theme catalog: %s", qPrintable(parseError.errorString()));
+            qFatal("Invalid 8bitCode theme catalog: %s", qPrintable(parseError.errorString()));
 
         QList<EditorTheme> result;
         QSet<QString> ids;

@@ -110,6 +110,40 @@ class ReleaseContractTests(unittest.TestCase):
   self.assertEqual(r.returncode,0,r.stdout+r.stderr);self.assertTrue((dest/asset).is_file())
   (fixtures/asset).write_bytes(b"tampered");r=subprocess.run(cmd,capture_output=True,text=True);self.assertNotEqual(r.returncode,0)
 
+ def test_linux_packages_replace_the_former_package_name(self):
+  stage=self.t/"stage";(stage/"bin").mkdir(parents=True);(stage/"bin/payload").write_bytes(b"x");out=self.t/"out";seen={}
+  def fake_run(args,**kw):
+   args=[str(a) for a in args];work=out/"native-x64"
+   if args[0]=="rpmbuild":
+    seen["spec"]=Path(args[-1]).read_text();seen["control"]=(work/"control/control").read_text()
+    rpms=Path(args[args.index("--define")+1].split(" ",1)[1])/"RPMS";rpms.mkdir(exist_ok=True);(rpms/"a.rpm").write_bytes(b"rpm")
+   elif args[0]=="zstd":seen["pkginfo"]=(work/"root/.PKGINFO").read_text();Path(args[-1]).write_bytes(b"zst")
+  with patch.object(d,"run",side_effect=fake_run):d.linux_packages(stage,out,"x64")
+  self.assertEqual(d.config()["replaces"],["8bitpad"])
+  for former in d.config()["replaces"]:
+   self.assertIn(f"\nConflicts: {former}\nReplaces: {former}\n",seen["control"])
+   self.assertIn(f"\nObsoletes: {former}\nConflicts: {former}\n",seen["spec"])
+   self.assertIn(f"\nreplaces = {former}\nconflict = {former}\n",seen["pkginfo"])
+ def test_portable_launchers_have_no_case_only_duplicates(self):
+  stage=self.t/"stage";(stage/"bin").mkdir(parents=True);d.launcher(stage);app=d.config()["app"]
+  names=[p.name for p in stage.iterdir() if p.is_file()]
+  self.assertIn(app,names);self.assertIn("8p",names);self.assertIn("8bitpad",names)
+  self.assertEqual(len({n.casefold() for n in names}),len(names))
+ @unittest.skipUnless(sys.platform.startswith("linux"),"Linux installer fixture")
+ def test_unix_install_takes_over_only_8bitpad_launchers(self):
+  app=d.config()["app"];base=f"{app}-1.0.0-linux-x64";fx=self.t/"fx";fx.mkdir();exe=self.t/app;exe.write_text("#!/bin/sh\n");exe.chmod(0o755)
+  with tarfile.open(fx/(base+".tar.gz"),"w:gz") as t:t.add(exe,arcname=base+"/"+app)
+  (fx/"install-index.tsv").write_text("\t".join(["1.0.0","linux","x64","portable",base+".tar.gz",d.digest(fx/(base+".tar.gz")),"2.35","stable"])+"\n")
+  b=self.t/"bin";apps=self.t/"data/applications";apps.mkdir(parents=True);b.mkdir();old='#!/bin/sh\nexec "/old/8bitpad/current/8bitPad" "$@"\n'
+  for n in ("8p","8bitPad"):(b/n).write_text(old)
+  (b/"8bitpad").write_text("foreign\n")
+  desktop=f'[Desktop Entry]\nType=Application\nName=8bitPad\nExec="{b}/8bitPad" %F\nIcon=/old/8bitpad/current/share/icons/hicolor/scalable/apps/8bitpad.svg\nTerminal=false\nCategories=Development;Utility;\n'
+  (apps/"8bitpad.desktop").write_text(desktop)
+  cmd=["sh",str(ROOT/"install.sh"),"--repo","example/test","--fixture-directory",str(fx),"--fixture-os","linux","--arch","x64","--install-dir",str(self.t/"opt"),"--bin-dir",str(b),"--data-dir",str(self.t/"data")]
+  r=subprocess.run(cmd,capture_output=True,text=True);self.assertNotEqual(r.returncode,0);self.assertEqual((b/"8bitpad").read_text(),"foreign\n")
+  (b/"8bitpad").unlink();r=subprocess.run(cmd,capture_output=True,text=True);self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+  self.assertIn(f'/current/{app}"',(b/"8p").read_text());self.assertIn(f'/current/{app}"',(b/"8bitpad").read_text())
+  self.assertFalse((b/"8bitPad").exists());self.assertFalse((apps/"8bitpad.desktop").exists());self.assertTrue((apps/"8bitcode.desktop").exists())
  def test_mislabeled_native_architectures_are_rejected(self):
   binary=self.t/"native"
   for cpu,elf_class,machine in [("x64",2,62),("arm64",2,183),("x86",1,3),("armv7",1,40)]:
@@ -132,7 +166,7 @@ class ReleaseContractTests(unittest.TestCase):
     header=bytearray(512);header[:2]=b"MZ";struct.pack_into("<I",header,0x3c,0x80);header[0x80:0x84]=b"PE\0\0";struct.pack_into("<H",header,0x84,machine)
     (stage/"bin"/(app+".exe")).write_bytes(header)
     files=["bin/Apply-Update.ps1","bin/Qt6Core.dll","bin/msvcp140.dll","bin/vcruntime140.dll","bin/qt.conf","plugins/platforms/qwindows.dll","Start-Portable.cmd","profile/settings.ini"]
-    files+=["bin/"+n for n in (["Qt6Qml.dll","Qt6Quick.dll","Qt6Network.dll","Qt6Svg.dll","puttygen.exe","openssh/ssh.exe","openssh/sftp.exe","openssh/ssh-keygen.exe"] if app=="8bitShell" else ["8p.exe","8bitPadFileIcons.dll","Qt6Widgets.dll","Qt6Network.dll","Qt6Svg.dll","Qt6Core5Compat.dll"])]
+    files+=["bin/"+n for n in (["Qt6Qml.dll","Qt6Quick.dll","Qt6Network.dll","Qt6Svg.dll","puttygen.exe","openssh/ssh.exe","openssh/sftp.exe","openssh/ssh-keygen.exe"] if app=="8bitShell" else ["8p.exe","8bitpad.exe","8bitCodeFileIcons.dll","Qt6Widgets.dll","Qt6Network.dll","Qt6Svg.dll","Qt6Core5Compat.dll"])]
     for name in files:
      p=stage/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(b"fixture")
     command=["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(ROOT/"scripts/ci/package-windows.ps1"),"-Stage",str(stage),"-OutputDirectory",str(out),"-Architecture",cpu,"-GenerateOnly"]
@@ -163,8 +197,8 @@ class ReleaseContractTests(unittest.TestCase):
     self.assertFalse(product.findall(".//w:RemoveFile",ns))
     payload=[x.get("Source") for x in product.findall(".//w:File",ns)]
     icon_server=product.find('.//w:Component[@Id="PadFileIconHandler"]',ns)
-    if app=="8bitPad":
-     self.assertTrue(any(Path(x).name=="8bitPadFileIcons.dll" for x in payload))
+    if app=="8bitCode":
+     self.assertTrue(any(Path(x).name=="8bitCodeFileIcons.dll" for x in payload))
      self.assertIsNotNone(icon_server)
      self.assertEqual(icon_server.get("Win64"),"no" if cpu=="x86" else "yes")
      registry=icon_server.findall("w:RegistryValue",ns)
@@ -172,7 +206,7 @@ class ReleaseContractTests(unittest.TestCase):
      self.assertTrue(all(x.get("Root")=="HKCU" for x in registry))
      self.assertTrue(all(x.get("Key").startswith("Software\\Classes\\CLSID\\{D325870F-4B1C-4D26-A03C-3575B1607635}") for x in registry))
      server=next(x for x in registry if x.get("KeyPath")=="yes")
-     self.assertEqual(server.get("Value"),"[INSTALLDIR]bin\\8bitPadFileIcons.dll")
+     self.assertEqual(server.get("Value"),"[INSTALLDIR]bin\\8bitCodeFileIcons.dll")
      self.assertEqual(next(x for x in registry if x.get("Name")=="ThreadingModel").get("Value"),"Apartment")
     else:
      self.assertIsNone(icon_server)

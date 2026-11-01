@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- WiX 3.14.1. Keep UpgradeCode unchanged for every future 8bitPad x64 release.
+<!-- WiX 3.14.1. Keep UpgradeCode unchanged for every future 8bitCode x64 release.
      Increment one of the three MSI version fields for every published upgrade.
      ProductCode is derived from that version; PackageCode is fresh per build.
      Removing an older version is inside the rollback transaction. -->
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="$(var.ProductCode)" Name="8bitPad" Language="1033"
+  <Product Id="$(var.ProductCode)" Name="8bitCode" Language="1033"
            Version="$(var.ProductVersion)" Manufacturer="8bitPrograms"
            UpgradeCode="672CB70D-9BEE-47A3-9462-9013D2B29A44" Codepage="1252">
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser"
-             InstallPrivileges="limited" Description="8bitPad text and code editor" />
+             InstallPrivileges="limited" Description="8bitCode text and code editor" />
     <MajorUpgrade Schedule="afterInstallInitialize" AllowSameVersionUpgrades="no"
-                  DowngradeErrorMessage="A newer version of 8bitPad is already installed." />
+                  DowngradeErrorMessage="A newer version of 8bitCode is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <!-- MSI's VersionNT is compatibility-capped on recent Windows releases. -->
-    <Condition Message="8bitPad requires 64-bit Windows.">Installed OR VersionNT64</Condition>
+    <Condition Message="8bitCode requires 64-bit Windows.">Installed OR VersionNT64</Condition>
     <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPPRODUCTICON" Value="BitPadIcon" />
     <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLFOLDER]" After="CostFinalize" />
@@ -22,20 +22,20 @@
     <Icon Id="BitPadIcon" SourceFile="$(var.ProductIcon)" />
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="LocalAppDataFolder">
-        <Directory Id="INSTALLFOLDER" Name="8bitPad" />
+        <Directory Id="INSTALLFOLDER" Name="8bitCode" />
       </Directory>
       <Directory Id="ProgramMenuFolder">
         <Directory Id="BitPadMenuFolder" Name="8bitPrograms">
           <Component Id="StartMenuShortcut" Guid="098B7D49-B36D-4D63-A6F9-165359B1B211" Win64="yes">
-            <Shortcut Id="BitPadStartMenu" Name="8bitPad" Description="Text and code editor"
-                      Target="[INSTALLFOLDER]8bitPad.exe" WorkingDirectory="INSTALLFOLDER"
+            <Shortcut Id="BitPadStartMenu" Name="8bitCode" Description="Text and code editor"
+                      Target="[INSTALLFOLDER]8bitCode.exe" WorkingDirectory="INSTALLFOLDER"
                       Icon="BitPadIcon" IconIndex="0" />
-            <Shortcut Id="BitPadUninstall" Name="Uninstall 8bitPad"
-                      Description="Remove 8bitPad; keep settings and saved work"
+            <Shortcut Id="BitPadUninstall" Name="Uninstall 8bitCode"
+                      Description="Remove 8bitCode; keep settings and saved work"
                       Target="[System64Folder]msiexec.exe" Arguments="/x [ProductCode]"
                       WorkingDirectory="System64Folder" Icon="BitPadIcon" IconIndex="0" />
             <RemoveFolder Id="RemoveBitPadMenuFolder" On="uninstall" />
-            <RegistryValue Root="HKCU" Key="Software\8bitPad\Installer\Components"
+            <RegistryValue Root="HKCU" Key="Software\8bitCode\Installer\Components"
                            Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
           </Component>
         </Directory>
@@ -43,24 +43,24 @@
     </Directory>
     <!-- Programs is shared with other per-user applications. Resolve our target
          without owning/removing that shared parent directory (ICE64). -->
-    <SetDirectory Id="INSTALLFOLDER" Value="[LocalAppDataFolder]Programs\8bitPad" />
+    <SetDirectory Id="INSTALLFOLDER" Value="[LocalAppDataFolder]Programs\8bitCode" />
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="PadFileIconHandler" Guid="*" Win64="yes">
         <RegistryValue Root="HKCU" Key="Software\Classes\CLSID\{D325870F-4B1C-4D26-A03C-3575B1607635}"
-                       Type="string" Value="8bitPad file icons" />
+                       Type="string" Value="8bitCode file icons" />
         <RegistryValue Root="HKCU" Key="Software\Classes\CLSID\{D325870F-4B1C-4D26-A03C-3575B1607635}\InprocServer32"
-                       Type="string" Value="[INSTALLFOLDER]8bitPadFileIcons.dll" KeyPath="yes" />
+                       Type="string" Value="[INSTALLFOLDER]8bitCodeFileIcons.dll" KeyPath="yes" />
         <RegistryValue Root="HKCU" Key="Software\Classes\CLSID\{D325870F-4B1C-4D26-A03C-3575B1607635}\InprocServer32"
                        Name="ThreadingModel" Type="string" Value="Apartment" />
       </Component>
       <Component Id="UserCommandPath" Guid="*" Win64="yes">
         <Environment Id="UserCommandPathValue" Name="PATH" Action="set" Part="last"
                      System="no" Permanent="no" Value="[INSTALLFOLDER]" />
-        <RegistryValue Root="HKCU" Key="Software\8bitPad\Installer\Components"
+        <RegistryValue Root="HKCU" Key="Software\8bitCode\Installer\Components"
                        Name="UserCommandPath" Type="integer" Value="1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
-    <Feature Id="MainApplication" Title="8bitPad" Level="1" Absent="disallow">
+    <Feature Id="MainApplication" Title="8bitCode" Level="1" Absent="disallow">
       <ComponentGroupRef Id="ApplicationPayload" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="UserCommandPath" />

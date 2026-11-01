@@ -46,9 +46,9 @@ try{
 foreach($relative in @('bin/Apply-Update.ps1','bin/Qt6Core.dll','bin/msvcp140.dll','bin/vcruntime140.dll','bin/qt.conf','plugins/platforms/qwindows.dll')){
  if(!(Test-Path -LiteralPath (Join-Path $Stage $relative))){throw "Missing runtime: $relative"}
 }
-$applicationFiles=if($app -eq '8bitShell'){@('bin/Qt6Qml.dll','bin/Qt6Quick.dll','bin/Qt6Network.dll','bin/Qt6Svg.dll','bin/puttygen.exe','bin/openssh/ssh.exe','bin/openssh/sftp.exe','bin/openssh/ssh-keygen.exe')}else{@('bin/8p.exe','bin/Qt6Widgets.dll','bin/Qt6Network.dll','bin/Qt6Svg.dll','bin/Qt6Core5Compat.dll')}
+$applicationFiles=if($app -eq '8bitShell'){@('bin/Qt6Qml.dll','bin/Qt6Quick.dll','bin/Qt6Network.dll','bin/Qt6Svg.dll','bin/puttygen.exe','bin/openssh/ssh.exe','bin/openssh/sftp.exe','bin/openssh/ssh-keygen.exe')}else{@('bin/8p.exe','bin/8bitpad.exe','bin/Qt6Widgets.dll','bin/Qt6Network.dll','bin/Qt6Svg.dll','bin/Qt6Core5Compat.dll')}
 foreach($relative in $applicationFiles){if(!(Test-Path -LiteralPath (Join-Path $Stage $relative))){throw "Missing application runtime: $relative"}}
-if($app -eq '8bitPad' -and !(Test-Path -LiteralPath (Join-Path $Stage 'bin/8bitPadFileIcons.dll'))){
+if($app -eq '8bitCode' -and !(Test-Path -LiteralPath (Join-Path $Stage 'bin/8bitCodeFileIcons.dll'))){
  throw 'Missing native file icon handler'
 }
 $work=Join-Path $repo "build/installer-$Architecture-$([guid]::NewGuid().ToString('N'))"
@@ -94,12 +94,12 @@ foreach($f in Get-ChildItem -LiteralPath $Stage -Recurse -File | Sort-Object Ful
  $lines.Add(('<DirectoryRef Id="{0}"><Component Id="{1}" Guid="{2}" Win64="{3}"><File Id="{4}" Source="{5}"/><RegistryValue Root="HKCU" Key="Software\{6}\Installer" Name="{1}" Type="integer" Value="1" KeyPath="yes"/></Component></DirectoryRef>' -f $dirs[(Split-Path -Parent $rel)],$id,(GuidFor $rel),$win64,$fileId,(Xml $f.FullName),$app))
 }
 # Append only this application's command directory to the user PATH.
-if($app -eq '8bitPad'){
+if($app -eq '8bitCode'){
  # MSI owns the COM server registration, including uninstall/repair. File-type
  # choices and the generic Open With icon handler are enabled by Pad itself.
  $components.Add('PadFileIconHandler')
  $classKey='Software\Classes\CLSID\{D325870F-4B1C-4D26-A03C-3575B1607635}'
- $lines.Add(('<DirectoryRef Id="INSTALLDIR"><Component Id="PadFileIconHandler" Guid="{0}" Win64="{1}"><RegistryValue Root="HKCU" Key="{2}" Type="string" Value="8bitPad file icons"/><RegistryValue Root="HKCU" Key="{2}\InprocServer32" Type="string" Value="[INSTALLDIR]bin\8bitPadFileIcons.dll" KeyPath="yes"/><RegistryValue Root="HKCU" Key="{2}\InprocServer32" Name="ThreadingModel" Type="string" Value="Apartment"/></Component></DirectoryRef>' -f (GuidFor 'native-file-icon-handler'),$win64,$classKey))
+ $lines.Add(('<DirectoryRef Id="INSTALLDIR"><Component Id="PadFileIconHandler" Guid="{0}" Win64="{1}"><RegistryValue Root="HKCU" Key="{2}" Type="string" Value="8bitCode file icons"/><RegistryValue Root="HKCU" Key="{2}\InprocServer32" Type="string" Value="[INSTALLDIR]bin\8bitCodeFileIcons.dll" KeyPath="yes"/><RegistryValue Root="HKCU" Key="{2}\InprocServer32" Name="ThreadingModel" Type="string" Value="Apartment"/></Component></DirectoryRef>' -f (GuidFor 'native-file-icon-handler'),$win64,$classKey))
 }
 # MSI removes that segment on uninstall and leaves other entries intact.
 $components.Add('UserCommandPath')

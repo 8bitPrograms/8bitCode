@@ -196,10 +196,14 @@ if(WIN32)
     add_executable(BitPadCommand WIN32 CommandLauncherWindows.cpp)
     set_target_properties(BitPadCommand PROPERTIES OUTPUT_NAME 8p
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    # 8bitcode resolves to 8bitCode.exe itself; 8bitpad keeps the old command working.
+    add_executable(BitPadLegacyCommand WIN32 CommandLauncherWindows.cpp)
+    set_target_properties(BitPadLegacyCommand PROPERTIES OUTPUT_NAME 8bitpad
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
     add_library(BitPadFileIcons SHARED FileIconHandlerWindows.cpp
         FileIconHandlerWindows.h FileTypeIconMapWindows.h FileIconHandlerWindows.def)
     target_link_libraries(BitPadFileIcons PRIVATE ole32 uuid)
-    set_target_properties(BitPadFileIcons PROPERTIES OUTPUT_NAME 8bitPadFileIcons
+    set_target_properties(BitPadFileIcons PROPERTIES OUTPUT_NAME 8bitCodeFileIcons
         PREFIX "" RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
         AUTOMOC OFF AUTOUIC OFF AUTORCC OFF
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -207,7 +211,7 @@ if(WIN32)
 endif()
 
 set_target_properties(NotepadNext PROPERTIES
-    OUTPUT_NAME 8bitPad
+    OUTPUT_NAME 8bitCode
     MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/deploy/macos/info.plist
 )
 

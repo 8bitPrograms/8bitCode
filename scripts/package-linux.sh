@@ -24,7 +24,7 @@ qt_root="$(realpath -- "$qt_root")"
 tool_dir="$(realpath -- "$tool_dir")"
 mkdir -p -- "$output_dir"
 output_dir="$(realpath -- "$output_dir")"
-bundle_name="8bitPad-$version-linux-x86_64"
+bundle_name="8bitCode-$version-linux-x86_64"
 asset="$output_dir/$bundle_name.tar.gz"
 [[ ! -e "$asset" ]] || { echo "Refusing to overwrite $asset" >&2; exit 2; }
 grep -q '^BUILD_TESTING:BOOL=ON$' "$build_dir/CMakeCache.txt" || { echo 'Use the tested BUILD_TESTING=ON build.' >&2; exit 2; }
@@ -52,7 +52,7 @@ exec "$BIT8PAD_PATCHELF_REAL" "$@"
 EOF
 chmod 755 "$PATCHELF"
 DESTDIR="$app_dir" cmake --install "$build_dir" --prefix /usr
-[[ -x "$app_dir/usr/bin/8bitPad" ]] || { echo 'Installed executable is missing.' >&2; exit 1; }
+[[ -x "$app_dir/usr/bin/8bitCode" ]] || { echo 'Installed executable is missing.' >&2; exit 1; }
 # All paths below belong to the freshly created packaging directory.
 rm -rf -- "$app_dir/usr/include" "$app_dir/usr/lib/cmake" "$app_dir/usr/lib64/cmake"
 find "$app_dir/usr" -type f -name '*.a' -delete
@@ -71,8 +71,8 @@ done
 # Distro libraries are already stripped; old bundled strip cannot handle RELR.
 export NO_STRIP=1
 "$tool_dir/linuxdeploy-x86_64.AppImage" --appdir "$app_dir" \
-    --desktop-file "$app_dir/usr/share/applications/8bitpad.desktop" \
-    --icon-file "$app_dir/usr/share/icons/hicolor/scalable/apps/8bitpad.svg" --plugin qt
+    --desktop-file "$app_dir/usr/share/applications/8bitcode.desktop" \
+    --icon-file "$app_dir/usr/share/icons/hicolor/scalable/apps/8bitcode.svg" --plugin qt
 for library in Core Core5Compat Gui Widgets Network PrintSupport Svg; do
     find "$app_dir/usr/lib" -name "libQt6$library.so*" -print -quit | grep -q . || { echo "Missing Qt $library runtime" >&2; exit 1; }
 done
@@ -80,17 +80,17 @@ for plugin in libqxcb.so libqoffscreen.so libqsvg.so; do
     find "$app_dir" -name "$plugin" -print -quit | grep -q . || { echo "Missing $plugin" >&2; exit 1; }
 done
 # No AppImage launcher, desktop integration runtime or generated hook is shipped.
-rm -f -- "$app_dir/AppRun" "$app_dir/AppRun.wrapped" "$app_dir/.DirIcon" "$app_dir/8bitpad.desktop" "$app_dir/8bitpad.svg"
+rm -f -- "$app_dir/AppRun" "$app_dir/AppRun.wrapped" "$app_dir/.DirIcon" "$app_dir/8bitcode.desktop" "$app_dir/8bitcode.svg"
 rm -rf -- "$app_dir/apprun-hooks"
-cat > "$app_dir/8bitPad" <<'EOF'
+cat > "$app_dir/8bitCode" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 bundle_dir="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
 export LD_LIBRARY_PATH="$bundle_dir/usr/lib:$bundle_dir/usr/lib64${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$bundle_dir/usr/plugins"
-exec "$bundle_dir/usr/bin/8bitPad" "$@"
+exec "$bundle_dir/usr/bin/8bitCode" "$@"
 EOF
-chmod 755 "$app_dir/8bitPad"
+chmod 755 "$app_dir/8bitCode"
 cat > "$app_dir/usr/bin/qt.conf" <<'EOF'
 [Paths]
 Prefix=..
@@ -99,13 +99,13 @@ Plugins=plugins
 Translations=translations
 EOF
 qt_version="$("$QMAKE" -query QT_VERSION)"
-cat > "$app_dir/usr/share/doc/8bitpad/QT-SOURCE.txt" <<EOF
+cat > "$app_dir/usr/share/doc/8bitcode/QT-SOURCE.txt" <<EOF
 Runtime Qt version: $qt_version (QtBase, Qt5Compat and QtSvg).
 License notices and source metadata: licenses/qt/.
 Official corresponding Qt sources:
 https://download.qt.io/archive/qt/${qt_version%.*}/$qt_version/submodules/
-CI release sources accompany the package as 8bitPad-$version-qt-6.5.3-source.tar.gz.
-Application/dependency source: 8bitPad-$version-source.tar.gz.
+CI release sources accompany the package as 8bitCode-$version-qt-6.5.3-source.tar.gz.
+Application/dependency source: 8bitCode-$version-source.tar.gz.
 EOF
 # Normalize only documentation names; all runtime paths must already be portable.
 python3 - "$app_dir" <<'PY'
@@ -133,6 +133,6 @@ mkdir "$work_dir/extracted"
 tar -xzf "$staged_archive" -C "$work_dir/extracted" --no-same-owner
 env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH -u QT_QPA_FONTDIR -u QML2_IMPORT_PATH -u APPIMAGE_EXTRACT_AND_RUN \
     PATH=/usr/bin:/bin QT_QPA_PLATFORM=offscreen timeout 180 \
-    "$work_dir/extracted/$bundle_name/8bitPad" --smoke-test "$work_dir/package-smoke"
+    "$work_dir/extracted/$bundle_name/8bitCode" --smoke-test "$work_dir/package-smoke"
 cp -- "$staged_archive" "$asset"
 printf 'Linux archive packaged and smoke-tested: %s\n' "$asset"

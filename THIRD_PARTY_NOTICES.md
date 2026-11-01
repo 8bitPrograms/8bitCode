@@ -1,8 +1,8 @@
 # Third-party notices
 
-8bitPad is a GPL-3.0-or-later derivative of **Notepad Next v0.15**, commit
+8bitCode (formerly 8bitPad) is a GPL-3.0-or-later derivative of **Notepad Next v0.15**, commit
 `fc4c807cf2b755b37d40de27cf29a5268c7c2fc5`, by Justin Dailey and contributors.
-Original copyright notices and the full GPL text are retained. 8bitPad is
+Original copyright notices and the full GPL text are retained. 8bitCode is
 independent of the Notepad++ and Notepad Next projects.
 
 Source: https://github.com/dail8859/NotepadNext

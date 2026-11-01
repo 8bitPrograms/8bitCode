@@ -5,7 +5,7 @@ param([string]$OutputDirectory = '', [string]$WixRoot = '')
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version 2
 $packageScript = Join-Path $PSScriptRoot 'package-msi.ps1'
-if (!$OutputDirectory) { $OutputDirectory = Join-Path ([IO.Path]::GetTempPath()) ('8bitpad-msi-tests-' + [guid]::NewGuid().ToString('N')) }
+if (!$OutputDirectory) { $OutputDirectory = Join-Path ([IO.Path]::GetTempPath()) ('8bitcode-msi-tests-' + [guid]::NewGuid().ToString('N')) }
 $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Choose a fresh test output directory.' }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
@@ -43,16 +43,16 @@ $package = Join-Path $OutputDirectory ('bundle space & ' + $accented)
 $bytes = New-Object byte[] 512
 $bytes[0] = 0x4d; $bytes[1] = 0x5a; $bytes[0x3c] = 0x80
 $bytes[0x80] = 0x50; $bytes[0x81] = 0x45; $bytes[0x84] = 0x64; $bytes[0x85] = 0x86
-[IO.File]::WriteAllBytes((Join-Path $package '8bitPad.exe'), $bytes)
+[IO.File]::WriteAllBytes((Join-Path $package '8bitCode.exe'), $bytes)
 foreach ($relative in @('Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'qt.conf', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'licenses/Qt.txt', 'theme-licenses/ayu.txt', $unicodeDoc, 'Start-Portable.cmd', 'profile/session.json')) {
     Write-Text (Join-Path $package $relative) ('fixture ' + $relative)
 }
-Write-Text (Join-Path $package '8bitPadFileIcons.dll') 'native icon handler fixture'
+Write-Text (Join-Path $package '8bitCodeFileIcons.dll') 'native icon handler fixture'
 Update-Manifest $package
-$first = & $packageScript -PackageDirectory $package -OutputMsi (Join-Path $OutputDirectory '8bitPad-0.1.0-windows-x64.msi') -Version 0.1.0 -GenerateOnly
+$first = & $packageScript -PackageDirectory $package -OutputMsi (Join-Path $OutputDirectory '8bitCode-0.1.0-windows-x64.msi') -Version 0.1.0 -GenerateOnly
 $manifest = Get-Content -LiteralPath (Join-Path $first.WorkDirectory 'payload.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 [xml]$payloadXml = Get-Content -LiteralPath (Join-Path $first.WorkDirectory 'Payload.wxs') -Raw -Encoding UTF8
-[xml]$productXml = Get-Content -LiteralPath (Join-Path $first.WorkDirectory '8bitPad.wxs') -Raw -Encoding UTF8
+[xml]$productXml = Get-Content -LiteralPath (Join-Path $first.WorkDirectory '8bitCode.wxs') -Raw -Encoding UTF8
 $ns = New-Object Xml.XmlNamespaceManager($payloadXml.NameTable)
 $ns.AddNamespace('w', 'http://schemas.microsoft.com/wix/2006/wi')
 $pns = New-Object Xml.XmlNamespaceManager($productXml.NameTable)
@@ -60,15 +60,15 @@ $pns.AddNamespace('w', 'http://schemas.microsoft.com/wix/2006/wi')
 $paths = @($manifest.files | ForEach-Object { $_.path })
 Assert ($first.GeneratedOnly -and !(Test-Path -LiteralPath $first.OutputMsi)) 'GenerateOnly never creates or installs an MSI'
 Assert ($paths.Count -eq 17) 'Complete fixture runtime, native icons, plugins and license payload is included'
-Assert ($paths -contains '8bitPadFileIcons.dll') 'Native Explorer icon handler is included'
-Assert ($null -ne $productXml.SelectSingleNode('//w:Component[@Id="PadFileIconHandler"]/w:RegistryValue[@KeyPath="yes"][@Value="[INSTALLFOLDER]8bitPadFileIcons.dll"]', $pns)) 'MSI owns native icon server registration and removal'
+Assert ($paths -contains '8bitCodeFileIcons.dll') 'Native Explorer icon handler is included'
+Assert ($null -ne $productXml.SelectSingleNode('//w:Component[@Id="PadFileIconHandler"]/w:RegistryValue[@KeyPath="yes"][@Value="[INSTALLFOLDER]8bitCodeFileIcons.dll"]', $pns)) 'MSI owns native icon server registration and removal'
 Assert (!(@($paths | Where-Object { $_ -like 'profile/*' -or $_ -in 'Start-Portable.cmd','SHA256SUMS.txt' }).Count)) 'Portable launcher, profile and old checksum manifest are excluded'
 Assert ($paths -contains $unicodeDoc) 'Spaces, XML metacharacters and Unicode file paths survive authoring'
 $pkg = $productXml.SelectSingleNode('//w:Package', $pns)
 Assert ($pkg.InstallScope -eq 'perUser' -and $pkg.InstallPrivileges -eq 'limited') 'Installation is fixed per-user with limited privileges'
-Assert ($null -ne $productXml.SelectSingleNode('//w:SetDirectory[@Id="INSTALLFOLDER"][@Value="[LocalAppDataFolder]Programs\8bitPad"]', $pns)) 'Default install directory is LocalAppData/Programs/8bitPad'
+Assert ($null -ne $productXml.SelectSingleNode('//w:SetDirectory[@Id="INSTALLFOLDER"][@Value="[LocalAppDataFolder]Programs\8bitCode"]', $pns)) 'Default install directory is LocalAppData/Programs/8bitCode'
 Assert ($null -eq $productXml.SelectSingleNode('//w:Directory[@Name="Programs"]', $pns)) 'Shared Programs parent is not owned or removed by this installer'
-Assert ($null -ne $productXml.SelectSingleNode('//w:Shortcut[@Target="[INSTALLFOLDER]8bitPad.exe"]', $pns)) 'Start Menu shortcut targets installed executable'
+Assert ($null -ne $productXml.SelectSingleNode('//w:Shortcut[@Target="[INSTALLFOLDER]8bitCode.exe"]', $pns)) 'Start Menu shortcut targets installed executable'
 Assert ($productXml.SelectSingleNode('//w:Directory[@Id="BitPadMenuFolder"]', $pns).Name -eq '8bitPrograms') 'Both products share the 8bitPrograms Start Menu group'
 Assert ($null -ne $productXml.SelectSingleNode('//w:Shortcut[@Id="BitPadUninstall"][@Arguments="/x [ProductCode]"][@Target="[System64Folder]msiexec.exe"]', $pns)) 'Uninstall shortcut removes the installed MSI product'
 Assert ($productXml.SelectSingleNode('//w:Product', $pns).Manufacturer -eq '8bitPrograms') 'Installed apps lists the 8bitPrograms publisher'
@@ -81,7 +81,7 @@ Assert ($null -ne $productXml.SelectSingleNode('//w:Property[@Id="MSIDISABLERMRE
 Assert ($payloadXml.SelectNodes('//w:RemoveFolder[@On="uninstall"]', $ns).Count -gt 0) 'Only empty installer directories are cleaned on uninstall'
 $copy = Join-Path $OutputDirectory 'second source location'
 Copy-Item -LiteralPath $package -Destination $copy -Recurse
-$second = & $packageScript -PackageDirectory $copy -OutputMsi (Join-Path $OutputDirectory '8bitPad-0.1.1-windows-x64.msi') -Version 0.1.1 -GenerateOnly
+$second = & $packageScript -PackageDirectory $copy -OutputMsi (Join-Path $OutputDirectory '8bitCode-0.1.1-windows-x64.msi') -Version 0.1.1 -GenerateOnly
 $next = Get-Content -LiteralPath (Join-Path $second.WorkDirectory 'payload.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 Assert (($manifest.files.guid -join ',') -eq ($next.files.guid -join ',') -and ($manifest.files.component -join ',') -eq ($next.files.component -join ',')) 'Component identities survive different source roots and new release versions'
 Assert ($manifest.productCode -ne $next.productCode -and $manifest.upgradeCode -eq $next.upgradeCode) 'New version gets a new ProductCode and retains UpgradeCode'
@@ -97,7 +97,7 @@ Copy-Item -LiteralPath (Join-Path $package 'Qt6Core.dll') -Destination (Join-Pat
 Write-Text (Join-Path $copy 'unexpected.txt') 'unmanifested'
 Expect-Failure { & $packageScript -PackageDirectory $copy -OutputMsi (Join-Path $OutputDirectory 'extra.msi') -GenerateOnly } 'not in portable checksum manifest' 'Unmanifested extra files cannot silently enter the installer'
 $bytes[0x84] = 0x4c; $bytes[0x85] = 0x01
-[IO.File]::WriteAllBytes((Join-Path $copy '8bitPad.exe'), $bytes)
+[IO.File]::WriteAllBytes((Join-Path $copy '8bitCode.exe'), $bytes)
 Expect-Failure { & $packageScript -PackageDirectory $copy -OutputMsi (Join-Path $OutputDirectory 'x86.msi') -GenerateOnly } 'Windows x64' 'An x86 executable cannot be labelled as an x64 installer'
 if ($WixRoot) {
     # Optional real-tool integration regression: quoted output path with spaces,

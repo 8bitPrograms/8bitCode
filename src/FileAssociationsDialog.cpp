@@ -48,7 +48,7 @@ FileAssociationsDialog::FileAssociationsDialog(QWidget *parent, Callbacks callba
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 18, 20, 18);
     layout->setSpacing(10);
-    auto *heading = new QLabel(tr("Choose file types for 8bitPad"), this);
+    auto *heading = new QLabel(tr("Choose file types for 8bitCode"), this);
     heading->setObjectName(QStringLiteral("associationHeading"));
     QFont headingFont = heading->font();
     headingFont.setBold(true);
@@ -112,7 +112,7 @@ FileAssociationsDialog::FileAssociationsDialog(QWidget *parent, Callbacks callba
 
     requestDefaults = new QCheckBox(this);
     requestDefaults->setObjectName(QStringLiteral("associationRequestDefaults"));
-    requestDefaults->setText(tr("Make 8bitPad the default application for the selected file types"));
+    requestDefaults->setText(tr("Make 8bitCode the default application for the selected file types"));
 #ifdef Q_OS_WIN
     requestDefaults->setToolTip(tr("Apply directly where Windows allows it. Any types requiring Windows confirmation are listed here."));
 #endif
@@ -394,8 +394,8 @@ void FileAssociationsDialog::setContextMenu(bool enabled)
 
 void FileAssociationsDialog::updateContextMenuState()
 {
-    contextState->setText(contextInstalled ? tr("8bitPad is available in the file manager context menu.")
-                                          : tr("Add 8bitPad to the file manager context menu."));
+    contextState->setText(contextInstalled ? tr("8bitCode is available in the file manager context menu.")
+                                          : tr("Add 8bitCode to the file manager context menu."));
     addContext->setEnabled(!contextInstalled);
     removeContext->setEnabled(contextInstalled);
 }

@@ -17,13 +17,13 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "CompanyName", "8bitPad"
-            VALUE "FileDescription", "8bitPad"
+            VALUE "CompanyName", "8bitCode"
+            VALUE "FileDescription", "8bitCode"
             VALUE "FileVersion", "@PROJECT_VERSION@"
-            VALUE "InternalName", "8bitPad.exe"
+            VALUE "InternalName", "8bitCode.exe"
             VALUE "LegalCopyright", "@APP_COPYRIGHT@"
-            VALUE "OriginalFilename", "8bitPad.exe"
-            VALUE "ProductName", "8bitPad"
+            VALUE "OriginalFilename", "8bitCode.exe"
+            VALUE "ProductName", "8bitCode"
             VALUE "ProductVersion", "@PROJECT_VERSION@"
         END
     END
