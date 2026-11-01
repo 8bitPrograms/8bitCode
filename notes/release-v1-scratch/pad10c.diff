@@ -1,0 +1,162 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 7f0f80f..024ef26 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -237,7 +237,17 @@ jobs:
+       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+         with:
+           name: candidate-linux-${{ matrix.arch }}
+-          path: dist/release/*
++          # Release asset types only, as in the native job; finalize rejects anything else.
++          path: |
++            dist/release/*.zip
++            dist/release/*.tar.gz
++            dist/release/*.msi
++            dist/release/*.exe
++            dist/release/*.dmg
++            dist/release/*.deb
++            dist/release/*.rpm
++            dist/release/*.pkg.tar.zst
++            dist/release/manifest-*.json
+           if-no-files-found: error
+   legacy-windows:
+     needs: plan
+@@ -256,11 +266,23 @@ jobs:
+       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+         with:
+           name: candidate-windows-x86
+-          path: dist/release/*
++          # Release asset types only, as in the native job; finalize rejects anything else.
++          path: |
++            dist/release/*.zip
++            dist/release/*.tar.gz
++            dist/release/*.msi
++            dist/release/*.exe
++            dist/release/*.dmg
++            dist/release/*.deb
++            dist/release/*.rpm
++            dist/release/*.pkg.tar.zst
++            dist/release/manifest-*.json
+           if-no-files-found: error
+   draft-release:
+     needs: [plan, native, legacy-linux, legacy-windows]
+-    if: always() && needs.native.result == 'success' && (needs.legacy-linux.result == 'success' || needs.legacy-linux.result == 'skipped') && (needs.legacy-windows.result == 'success' || needs.legacy-windows.result == 'skipped') && (startsWith(github.ref, 'refs/tags/v') || inputs.publish_draft)
++    # A finalize_dry_run dispatch never drafts, even on a version tag. On push and
++    # pull_request runs inputs is empty, so !inputs.finalize_dry_run is true there.
++    if: always() && needs.native.result == 'success' && (needs.legacy-linux.result == 'success' || needs.legacy-linux.result == 'skipped') && (needs.legacy-windows.result == 'success' || needs.legacy-windows.result == 'skipped') && (startsWith(github.ref, 'refs/tags/v') || inputs.publish_draft) && !inputs.finalize_dry_run
+     runs-on: ubuntu-22.04
+     permissions: { contents: write }
+     steps:
+@@ -287,8 +309,9 @@ jobs:
+           gh release create "v$version" dist/release/* --repo "$RELEASE_REPOSITORY" --draft --verify-tag --title "$version" --notes-file packaging/RELEASE-NOTES.md
+   finalize-dry-run:
+     # Proves the release inventory on any branch without a tag or a write token.
+-    needs: native
+-    if: github.event_name == 'workflow_dispatch' && inputs.finalize_dry_run && inputs.packages
++    # Waits for the legacy jobs too, so their candidates go through the same finalize checks.
++    needs: [native, legacy-linux, legacy-windows]
++    if: always() && github.event_name == 'workflow_dispatch' && inputs.finalize_dry_run && inputs.packages && needs.native.result == 'success' && (needs.legacy-linux.result == 'success' || needs.legacy-linux.result == 'skipped') && (needs.legacy-windows.result == 'success' || needs.legacy-windows.result == 'skipped')
+     runs-on: ubuntu-22.04
+     permissions: { contents: read }
+     steps:
+diff --git a/scripts/ci/distribution.py b/scripts/ci/distribution.py
+index 3e0ba8f..262ff6a 100644
+--- a/scripts/ci/distribution.py
++++ b/scripts/ci/distribution.py
+@@ -190,17 +190,35 @@ def stamp_assets(out,system,cpu):
+             entries.append({"name":p.name,"sha256":digest(p),"size":p.stat().st_size,"os":system,"arch":cpu,"version":v,"glibc":c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"]) if system=="linux" else None,"experimental":cpu in ("x86","armv7")})
+     if not entries:raise ValueError("No packages produced")
+     (out/f"manifest-{system}-{cpu}.json").write_text(json.dumps(entries,indent=2)+"\n")
++# Files finalize writes. With the manifests and the assets they list, they are the
++# only files draft-release may attach (gh release create dist/release/*).
++FINALIZE_OUTPUTS=("release-manifest.json","install-index.tsv","install.sh","install.ps1","SHA256SUMS.txt")
++def release_asset_names(c,v):
++    # Every name a manifest entry may carry for version v: the RELEASE_ASSETS of each
++    # configured target, and the source bundles build.py writes on Linux runners.
++    # A stray manifest (an old version, an unknown CPU) cannot vouch for other names.
++    names={f'{c["app"]}-{v}-source.tar.gz',f'{c["app"]}-{v}-qt-{c["qtVersion"]}-source.tar.gz'}
++    for target in c["platforms"]["stable"]+c["platforms"]["experimental"]:
++        system,cpu=target.split("-",1)
++        names|={f'{c["app"]}-{v}-{target}{suffix}' for suffix in RELEASE_ASSETS[system]}
++        if system=="linux":names.add(f'{c["app"]}-{v}-runtime-{cpu}-source.tar.gz')
++    return names
+ def finalize(out,repository):
+     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",repository):raise ValueError("Real owner/repository required")
+-    out=Path(out);entries=[]
+-    for p in sorted(out.glob("manifest-*.json")):entries+=json.loads(p.read_text())
++    out=Path(out);entries=[];manifests=sorted(out.glob("manifest-*.json"))
++    for p in manifests:entries+=json.loads(p.read_text())
+     if not entries:raise ValueError("No tested package manifests")
++    v=version();allowed=release_asset_names(config(),v)
++    foreign=sorted({str(e["name"]) for e in entries if e["name"] not in allowed or e.get("version")!=v})
++    if foreign:raise ValueError(f"Not a {v} release asset, refusing to publish: "+", ".join(foreign))
+     names=set()
+     for e in entries:
+         if Path(e["name"]).name!=e["name"] or "/" in e["name"] or "\\" in e["name"]:raise ValueError("Unsafe asset name")
+         if e["name"] in names:raise ValueError("Duplicate release asset")
+         names.add(e["name"])
+         if digest(out/e["name"])!=e["sha256"]:raise ValueError("Package changed after validation")
++    unexpected=sorted(p.name for p in out.iterdir() if p.name not in names|{m.name for m in manifests}|set(FINALIZE_OUTPUTS))
++    if unexpected:raise ValueError("Not in any package manifest, refusing to publish: "+", ".join(unexpected))
+     (out/"release-manifest.json").write_text(json.dumps({"app":config()["app"],"version":version(),"repository":repository,"assets":entries},indent=2)+"\n")
+     lines=[]
+     for e in entries:
+diff --git a/scripts/ci/tests/test_distribution.py b/scripts/ci/tests/test_distribution.py
+index 30a9962..4f9dca6 100644
+--- a/scripts/ci/tests/test_distribution.py
++++ b/scripts/ci/tests/test_distribution.py
+@@ -35,7 +35,7 @@ class ReleaseContractTests(unittest.TestCase):
+   self.assertIn('example/test-repository',(out/"install.sh").read_text())
+   self.assertNotIn("'example/test-repository'|OWNER",(out/"install.sh").read_text())
+  def test_tampered_candidate_is_not_finalized(self):
+-  out=self.t/"release";out.mkdir();p=out/"payload.zip";p.write_bytes(b"original")
++  out=self.t/"release";out.mkdir();p=out/f'{d.config()["app"]}-1.0.0-windows-x64.zip';p.write_bytes(b"original")
+   e=dict(name=p.name,sha256=d.digest(p),os="windows",arch="x64",version="1.0.0",experimental=False,glibc=None)
+   (out/"manifest-test.json").write_text(json.dumps([e]));p.write_bytes(b"tampered")
+   with self.assertRaises(ValueError):d.finalize(out,"example/test")
+@@ -47,9 +47,44 @@ class ReleaseContractTests(unittest.TestCase):
+   names=[e["name"] for e in json.loads((out/"manifest-windows-arm64.json").read_text())]
+   self.assertEqual(sorted(names),sorted(assets))
+   # Upload only what CI's upload-artifact globs keep: the stray files are left behind.
+-  for n in (base+".wixpdb",base+".msi.log",base+".zip.part"):(out/n).unlink()
++  # The other target's MSI has no manifest here, and finalize refuses unlisted files.
++  for n in (base+".wixpdb",base+".msi.log",base+".zip.part",f"{app}-1.0.0-windows-x64.msi"):(out/n).unlink()
+   d.finalize(out,"example/test")
+   self.assertEqual(len(json.loads((out/"release-manifest.json").read_text())["assets"]),4)
++ def test_finalize_refuses_files_no_manifest_lists(self):
++  out=self.t/"release";out.mkdir();app=d.config()["app"];base=f"{app}-1.0.0-windows-x86"
++  for n in (base+".zip",base+".msi",base+".wixpdb",base+".pdb",base+".msi.log",base+".zip.part"):(out/n).write_bytes(n.encode())
++  d.stamp_assets(out,"windows","x86")
++  with self.assertRaisesRegex(ValueError,"refusing to publish: .*wixpdb"):d.finalize(out,"example/test")
++  self.assertFalse((out/"SHA256SUMS.txt").exists())
++ def test_finalize_refuses_stray_zips_that_match_the_upload_globs(self):
++  # Each of these passes the *.zip upload glob, so finalize is what keeps it out.
++  app=d.config()["app"];base=f"{app}-1.0.0-windows-x64"
++  strays=(f"{app}-0.9.0-windows-x64.zip",base+"-debug.zip",f"{app}-1.0.0-windows-riscv64.zip")
++  for stray in strays:
++   with self.subTest(unlisted=stray):
++    out=self.t/("unlisted-"+stray);out.mkdir()
++    for n in (base+".zip",base+".msi",stray):(out/n).write_bytes(n.encode())
++    d.stamp_assets(out,"windows","x64")
++    self.assertNotIn(stray,[e["name"] for e in json.loads((out/"manifest-windows-x64.json").read_text())])
++    with self.assertRaisesRegex(ValueError,"refusing to publish: "+stray.replace(".","[.]")+"$"):d.finalize(out,"example/test")
++    self.assertFalse((out/"SHA256SUMS.txt").exists())
++  # A stray manifest cannot vouch for them either: only this version's configured names pass.
++  for stray,version,system,cpu in ((strays[0],"0.9.0","windows","x64"),(strays[0],"1.0.0","windows","x64"),(strays[1],"1.0.0","windows","x64"),(strays[2],"1.0.0","windows","riscv64")):
++   with self.subTest(listed=stray,version=version):
++    out=self.t/(f"listed-{version}-"+stray);out.mkdir()
++    for n in (base+".zip",stray):(out/n).write_bytes(n.encode())
++    d.stamp_assets(out,"windows","x64");p=out/stray
++    (out/f"manifest-stray-{system}-{cpu}.json").write_text(json.dumps([dict(name=stray,sha256=d.digest(p),size=p.stat().st_size,os=system,arch=cpu,version=version,glibc=None,experimental=False)]))
++    with self.assertRaisesRegex(ValueError,"Not a 1[.]0[.]0 release asset, refusing to publish: "+stray.replace(".","[.]")):d.finalize(out,"example/test")
++    self.assertFalse((out/"SHA256SUMS.txt").exists())
++ def test_finalize_accepts_every_configured_asset_name(self):
++  # The name check must not refuse anything build.py legitimately stamps.
++  c=d.config();out=self.t/"release";out.mkdir();entries=[]
++  for n in sorted(d.release_asset_names(c,"1.0.0")):
++   p=out/n;p.write_bytes(n.encode());entries.append(dict(name=n,sha256=d.digest(p),os="source" if n.endswith("source.tar.gz") else n.split("-")[2],arch="all",version="1.0.0",experimental=False,glibc=None))
++  (out/"manifest-all.json").write_text(json.dumps(entries));d.finalize(out,"example/test")
++  self.assertEqual(len(json.loads((out/"release-manifest.json").read_text())["assets"]),len(entries))
+  def test_release_architecture_overrides_are_validated(self):
+   with patch.dict(os.environ,RELEASE_ARCH="made-up"):
+    with self.assertRaises(ValueError):d.arch()

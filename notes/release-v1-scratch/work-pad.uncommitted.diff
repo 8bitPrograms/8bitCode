@@ -1,0 +1,103 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 6a27036..7f0f80f 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -23,6 +23,10 @@ on:
+         description: Prepare a draft for a matching version tag
+         type: boolean
+         default: false
++      finalize_dry_run:
++        description: Run release-check and finalize on the package candidates; never creates a release
++        type: boolean
++        default: false
+ env:
+   PYTHONUTF8: '1'
+ permissions:
+@@ -281,3 +285,26 @@ jobs:
+         run: |
+           version=$(python scripts/ci/distribution.py version)
+           gh release create "v$version" dist/release/* --repo "$RELEASE_REPOSITORY" --draft --verify-tag --title "$version" --notes-file packaging/RELEASE-NOTES.md
++  finalize-dry-run:
++    # Proves the release inventory on any branch without a tag or a write token.
++    needs: native
++    if: github.event_name == 'workflow_dispatch' && inputs.finalize_dry_run && inputs.packages
++    runs-on: ubuntu-22.04
++    permissions: { contents: read }
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false }
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
++        with: { python-version: '3.12' }
++      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
++        with:
++          pattern: candidate-*
++          merge-multiple: true
++          path: dist/release
++      - name: Release check and finalize (dry run, nothing is published)
++        env: { RELEASE_REPOSITORY: '${{ github.repository }}' }
++        run: |
++          version=$(python scripts/ci/distribution.py version)
++          GITHUB_REF="refs/tags/v$version" python scripts/ci/release-check.py
++          python scripts/ci/distribution.py finalize --out dist/release --repository "$RELEASE_REPOSITORY"
++          ls -l dist/release
+diff --git a/scripts/ci/distribution.py b/scripts/ci/distribution.py
+index 7676a3d..3e0ba8f 100644
+--- a/scripts/ci/distribution.py
++++ b/scripts/ci/distribution.py
+@@ -174,10 +174,19 @@ cp -a "{payload}/." %{{buildroot}}/
+     with tarfile.open(raw,"w",dereference=True) as t:
+         for p in payload.iterdir():t.add(p,arcname=p.name,filter=root_owner)
+     run(["zstd","-q","-T0","-f",raw,"-o",out/f'{app}-{v}-linux-{cpu}.pkg.tar.zst']);shutil.rmtree(work)
++# Release assets each target publishes, as suffixes after "<app>-<version>-<os>-<cpu>".
++# Anything else a packaging tool leaves in the output folder (WiX .wixpdb,
++# logs, partial downloads) is not a release asset and must not be stamped.
++RELEASE_ASSETS={
++    "windows":(".zip",".tar.gz",".msi","-setup.exe"),
++    "linux":(".zip",".tar.gz",".deb",".rpm",".pkg.tar.zst"),
++    "macos":(".zip",".tar.gz",".dmg"),
++}
+ def stamp_assets(out,system,cpu):
+     out=Path(out);c=config();v=version();entries=[]
++    wanted={f'{c["app"]}-{v}-{system}-{cpu}{suffix}' for suffix in RELEASE_ASSETS[system]}
+     for p in sorted(out.iterdir()):
+-        if p.is_file() and p.name.startswith(f'{c["app"]}-{v}-{system}-{cpu}') and not p.name.endswith((".json",".tsv",".txt")):
++        if p.is_file() and p.name in wanted:
+             entries.append({"name":p.name,"sha256":digest(p),"size":p.stat().st_size,"os":system,"arch":cpu,"version":v,"glibc":c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"]) if system=="linux" else None,"experimental":cpu in ("x86","armv7")})
+     if not entries:raise ValueError("No packages produced")
+     (out/f"manifest-{system}-{cpu}.json").write_text(json.dumps(entries,indent=2)+"\n")
+diff --git a/scripts/ci/package-windows.ps1 b/scripts/ci/package-windows.ps1
+index 262cbdd..478cba1 100644
+--- a/scripts/ci/package-windows.ps1
++++ b/scripts/ci/package-windows.ps1
+@@ -131,7 +131,8 @@ if($LASTEXITCODE){throw 'WiX compilation failed'}
+ $base="$app-$version-windows-$Architecture";$msi=Join-Path $OutputDirectory ($base+'.msi')
+ # ICE91 is the per-user LocalAppData hint. ICE64 wants RemoveFolder for the
+ # shared Programs directory; uninstall must leave other apps installed there.
+-& (Join-Path $wix 'light.exe') -nologo -sice:ICE91 -sice:ICE64 -out $msi $obj
++# Keep the WiX debug database in the scratch folder, not next to the release MSI.
++& (Join-Path $wix 'light.exe') -nologo -sice:ICE91 -sice:ICE64 -pdbout (Join-Path $work 'Application.wixpdb') -out $msi $obj
+ if($LASTEXITCODE){throw 'MSI link/validation failed'}
+ $nsis=Get-Command makensis.exe -ErrorAction SilentlyContinue
+ $compiler=if($nsis){$nsis.Source}else{Join-Path ([Environment]::GetEnvironmentVariable('ProgramFiles(x86)')) 'NSIS/makensis.exe'}
+diff --git a/scripts/ci/tests/test_distribution.py b/scripts/ci/tests/test_distribution.py
+index 6c42ae3..30a9962 100644
+--- a/scripts/ci/tests/test_distribution.py
++++ b/scripts/ci/tests/test_distribution.py
+@@ -39,6 +39,17 @@ class ReleaseContractTests(unittest.TestCase):
+   e=dict(name=p.name,sha256=d.digest(p),os="windows",arch="x64",version="1.0.0",experimental=False,glibc=None)
+   (out/"manifest-test.json").write_text(json.dumps([e]));p.write_bytes(b"tampered")
+   with self.assertRaises(ValueError):d.finalize(out,"example/test")
++ def test_stamp_lists_only_release_assets_and_finalize_succeeds(self):
++  out=self.t/"release";out.mkdir();app=d.config()["app"];base=f"{app}-1.0.0-windows-arm64"
++  assets=[base+s for s in (".zip",".tar.gz",".msi","-setup.exe")]
++  for n in assets+[base+".wixpdb",base+".msi.log",base+".zip.part",f"{app}-1.0.0-windows-x64.msi"]:(out/n).write_bytes(n.encode())
++  d.stamp_assets(out,"windows","arm64")
++  names=[e["name"] for e in json.loads((out/"manifest-windows-arm64.json").read_text())]
++  self.assertEqual(sorted(names),sorted(assets))
++  # Upload only what CI's upload-artifact globs keep: the stray files are left behind.
++  for n in (base+".wixpdb",base+".msi.log",base+".zip.part"):(out/n).unlink()
++  d.finalize(out,"example/test")
++  self.assertEqual(len(json.loads((out/"release-manifest.json").read_text())["assets"]),4)
+  def test_release_architecture_overrides_are_validated(self):
+   with patch.dict(os.environ,RELEASE_ARCH="made-up"):
+    with self.assertRaises(ValueError):d.arch()

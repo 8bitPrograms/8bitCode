@@ -1,0 +1,119 @@
+From 6034cae9c40c4dd974484eb19b14bfc5e5227468 Mon Sep 17 00:00:00 2001
+From: x <a@b>
+Date: Fri, 30 Oct 2026 14:04:15 +0300
+Subject: [PATCH] pad10b
+
+---
+ .github/workflows/build.yml           | 29 +++++++++++++++++++++++----
+ scripts/ci/distribution.py            |  9 +++++++--
+ scripts/ci/tests/test_distribution.py |  9 ++++++++-
+ 3 files changed, 40 insertions(+), 7 deletions(-)
+
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 7f0f80f..ad04028 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -237,7 +237,17 @@ jobs:
+       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+         with:
+           name: candidate-linux-${{ matrix.arch }}
+-          path: dist/release/*
++          # Release asset types only, as in the native job; finalize rejects anything else.
++          path: |
++            dist/release/*.zip
++            dist/release/*.tar.gz
++            dist/release/*.msi
++            dist/release/*.exe
++            dist/release/*.dmg
++            dist/release/*.deb
++            dist/release/*.rpm
++            dist/release/*.pkg.tar.zst
++            dist/release/manifest-*.json
+           if-no-files-found: error
+   legacy-windows:
+     needs: plan
+@@ -256,7 +266,17 @@ jobs:
+       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+         with:
+           name: candidate-windows-x86
+-          path: dist/release/*
++          # Release asset types only, as in the native job; finalize rejects anything else.
++          path: |
++            dist/release/*.zip
++            dist/release/*.tar.gz
++            dist/release/*.msi
++            dist/release/*.exe
++            dist/release/*.dmg
++            dist/release/*.deb
++            dist/release/*.rpm
++            dist/release/*.pkg.tar.zst
++            dist/release/manifest-*.json
+           if-no-files-found: error
+   draft-release:
+     needs: [plan, native, legacy-linux, legacy-windows]
+@@ -287,8 +307,9 @@ jobs:
+           gh release create "v$version" dist/release/* --repo "$RELEASE_REPOSITORY" --draft --verify-tag --title "$version" --notes-file packaging/RELEASE-NOTES.md
+   finalize-dry-run:
+     # Proves the release inventory on any branch without a tag or a write token.
+-    needs: native
+-    if: github.event_name == 'workflow_dispatch' && inputs.finalize_dry_run && inputs.packages
++    # Waits for the legacy jobs too, so their candidates go through the same finalize checks.
++    needs: [native, legacy-linux, legacy-windows]
++    if: always() && github.event_name == 'workflow_dispatch' && inputs.finalize_dry_run && inputs.packages && needs.native.result == 'success' && (needs.legacy-linux.result == 'success' || needs.legacy-linux.result == 'skipped') && (needs.legacy-windows.result == 'success' || needs.legacy-windows.result == 'skipped')
+     runs-on: ubuntu-22.04
+     permissions: { contents: read }
+     steps:
+diff --git a/scripts/ci/distribution.py b/scripts/ci/distribution.py
+index 3e0ba8f..20ac634 100644
+--- a/scripts/ci/distribution.py
++++ b/scripts/ci/distribution.py
+@@ -190,10 +190,13 @@ def stamp_assets(out,system,cpu):
+             entries.append({"name":p.name,"sha256":digest(p),"size":p.stat().st_size,"os":system,"arch":cpu,"version":v,"glibc":c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"]) if system=="linux" else None,"experimental":cpu in ("x86","armv7")})
+     if not entries:raise ValueError("No packages produced")
+     (out/f"manifest-{system}-{cpu}.json").write_text(json.dumps(entries,indent=2)+"\n")
++# Files finalize writes. With the manifests and the assets they list, they are the
++# only files draft-release may attach (gh release create dist/release/*).
++FINALIZE_OUTPUTS=("release-manifest.json","install-index.tsv","install.sh","install.ps1","SHA256SUMS.txt")
+ def finalize(out,repository):
+     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+",repository):raise ValueError("Real owner/repository required")
+-    out=Path(out);entries=[]
+-    for p in sorted(out.glob("manifest-*.json")):entries+=json.loads(p.read_text())
++    out=Path(out);entries=[];manifests=sorted(out.glob("manifest-*.json"))
++    for p in manifests:entries+=json.loads(p.read_text())
+     if not entries:raise ValueError("No tested package manifests")
+     names=set()
+     for e in entries:
+@@ -201,6 +204,8 @@ def finalize(out,repository):
+         if e["name"] in names:raise ValueError("Duplicate release asset")
+         names.add(e["name"])
+         if digest(out/e["name"])!=e["sha256"]:raise ValueError("Package changed after validation")
++    unexpected=sorted(p.name for p in out.iterdir() if p.name not in names|{m.name for m in manifests}|set(FINALIZE_OUTPUTS))
++    if unexpected:raise ValueError("Not in any package manifest, refusing to publish: "+", ".join(unexpected))
+     (out/"release-manifest.json").write_text(json.dumps({"app":config()["app"],"version":version(),"repository":repository,"assets":entries},indent=2)+"\n")
+     lines=[]
+     for e in entries:
+diff --git a/scripts/ci/tests/test_distribution.py b/scripts/ci/tests/test_distribution.py
+index 30a9962..241c15e 100644
+--- a/scripts/ci/tests/test_distribution.py
++++ b/scripts/ci/tests/test_distribution.py
+@@ -47,9 +47,16 @@ class ReleaseContractTests(unittest.TestCase):
+   names=[e["name"] for e in json.loads((out/"manifest-windows-arm64.json").read_text())]
+   self.assertEqual(sorted(names),sorted(assets))
+   # Upload only what CI's upload-artifact globs keep: the stray files are left behind.
+-  for n in (base+".wixpdb",base+".msi.log",base+".zip.part"):(out/n).unlink()
++  # The other target's MSI has no manifest here, and finalize refuses unlisted files.
++  for n in (base+".wixpdb",base+".msi.log",base+".zip.part",f"{app}-1.0.0-windows-x64.msi"):(out/n).unlink()
+   d.finalize(out,"example/test")
+   self.assertEqual(len(json.loads((out/"release-manifest.json").read_text())["assets"]),4)
++ def test_finalize_refuses_files_no_manifest_lists(self):
++  out=self.t/"release";out.mkdir();app=d.config()["app"];base=f"{app}-1.0.0-windows-x86"
++  for n in (base+".zip",base+".msi",base+".wixpdb",base+".pdb",base+".msi.log",base+".zip.part"):(out/n).write_bytes(n.encode())
++  d.stamp_assets(out,"windows","x86")
++  with self.assertRaisesRegex(ValueError,"refusing to publish: .*wixpdb"):d.finalize(out,"example/test")
++  self.assertFalse((out/"SHA256SUMS.txt").exists())
+  def test_release_architecture_overrides_are_validated(self):
+   with patch.dict(os.environ,RELEASE_ARCH="made-up"):
+    with self.assertRaises(ValueError):d.arch()
+-- 
+2.47.3
+

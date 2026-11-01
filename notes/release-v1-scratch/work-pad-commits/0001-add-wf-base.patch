@@ -1,0 +1,302 @@
+From 013b7e829a9374c18cfbc31ced389eeaaf16e40c Mon Sep 17 00:00:00 2001
+From: x <a@b>
+Date: Fri, 30 Oct 2026 13:26:45 +0300
+Subject: [PATCH] add wf base
+
+---
+ .github/workflows/build.yml | 283 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 283 insertions(+)
+ create mode 100644 .github/workflows/build.yml
+
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+new file mode 100644
+index 0000000..6a27036
+--- /dev/null
++++ b/.github/workflows/build.yml
+@@ -0,0 +1,283 @@
++name: Build, test and prepare release
++on:
++  push:
++    branches: [main, master]
++    tags: ['v*']
++  pull_request:
++  workflow_dispatch:
++    inputs:
++      target:
++        description: Build target
++        type: choice
++        options: [all, windows, linux, macos]
++        default: all
++      packages:
++        description: Build downloadable packages
++        type: boolean
++        default: true
++      legacy32:
++        description: Also attempt experimental 32-bit source builds
++        type: boolean
++        default: false
++      publish_draft:
++        description: Prepare a draft for a matching version tag
++        type: boolean
++        default: false
++env:
++  PYTHONUTF8: '1'
++permissions:
++  contents: read
++# Pull requests replace their previous run. Push and tag runs are left to
++# finish: cancelling them dropped the macOS Qt cache before it could be saved.
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++jobs:
++  plan:
++    runs-on: ubuntu-22.04
++    outputs:
++      native: ${{ steps.matrix.outputs.native }}
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false }
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
++        with: { python-version: '3.12' }
++      - run: python scripts/ci/distribution.py validate
++      - run: python -m unittest discover -s scripts/ci/tests -v
++      - id: matrix
++        env:
++          BUILD_TARGET: ${{ inputs.target || 'all' }}
++          # Dependabot github-actions updates do not need a Qt SDK. Keeping them
++          # off the shared macOS runners leaves those machines for main and release builds.
++          SKIP_MACOS: ${{ github.actor == 'dependabot[bot]' }}
++        run: python scripts/ci/matrix.py
++  native:
++    needs: plan
++    name: ${{ matrix.os }} / ${{ matrix.arch }}
++    strategy:
++      fail-fast: false
++      matrix: ${{ fromJSON(needs.plan.outputs.native) }}
++    runs-on: ${{ matrix.runner }}
++    timeout-minutes: 360
++    env:
++      RELEASE_ARCH: ${{ matrix.arch }}
++      MACOSX_DEPLOYMENT_TARGET: '14.4'
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false }
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
++        with: { python-version: '3.12' }
++      - name: Linux build tools
++        if: matrix.os == 'linux'
++        run: |
++          sudo python3 scripts/ci/enable-source-repos.py
++          sudo apt-get update
++          sudo apt-get install -y --no-install-recommends g++-12 ninja-build cmake pkg-config perl python3-pip patchelf rpm zstd openssh-client openssh-server putty-tools libssl-dev libgl1-mesa-dev libegl1-mesa-dev libfontconfig1-dev libfreetype6-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libxcb-cursor-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev libxcb-render-util0-dev libxcb-xinerama0-dev libxcb-xkb-dev libxcb-randr0-dev libxcb-shape0-dev libxcb-sync-dev libx11-xcb-dev libxrender-dev libxi-dev libxext-dev libxfixes-dev libwayland-dev libwayland-egl-backend-dev wayland-protocols libdbus-1-dev fonts-dejavu-core libx11-dev libxcb-glx0-dev libxcb-shm0-dev libxcb-xfixes0-dev libxcb-render0-dev libxcb-util-dev
++          sudo mkdir -p /run/sshd
++          python -m pip install cmake==3.31.6
++          # g++-12 does not provide the plain g++/gcc names CMake searches for.
++          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 120
++          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 120
++          echo "CC=gcc-12" >> "$GITHUB_ENV"
++          echo "CXX=g++-12" >> "$GITHUB_ENV"
++      - name: macOS build tools
++        if: matrix.os == 'macos'
++        run: |
++          brew install ninja
++          python -m pip install cmake==3.31.6
++      - name: Validate Windows install and uninstall authoring
++        if: matrix.os == 'windows'
++        shell: pwsh
++        run: |
++          # GitHub's pwsh turns unittest's normal stderr progress into a failed step.
++          $PSNativeCommandUseErrorActionPreference = $false
++          New-Item -ItemType Directory -Force -Path build | Out-Null
++          python -m unittest discover -s scripts/ci/tests -v *> build/win-authoring-log.txt
++          $code = $LASTEXITCODE
++          if ($code -ne 0) {
++            $hits = @(Select-String -Path build/win-authoring-log.txt -Pattern 'AssertionError|FAIL:|Error|Exception|throw' | Select-Object -Last 8 | ForEach-Object { $_.Line.Trim() })
++            if (-not $hits) { $hits = @(Get-Content build/win-authoring-log.txt -Tail 8) }
++            $msg = ($hits -join ' || ')
++            if ($msg.Length -gt 3500) { $msg = $msg.Substring($msg.Length - 3500) }
++            Write-Output "::error::$msg"
++            exit $code
++          }
++      - name: Windows packaging tools
++        if: matrix.os == 'windows'
++        shell: powershell
++        run: choco install nsis --version=3.11 -y --no-progress
++      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
++        id: sdk
++        with:
++          path: |
++            tooling/qt-sdk-${{ matrix.arch }}
++            tooling/qt-sources
++          key: ${{ matrix.os == 'macos' && format('qt-official-r1-{0}', hashFiles('scripts/ci/install-qt-macos.py', 'packaging/release.json')) || format('qt-source-6.11.2-r2-{0}-{1}-{2}', runner.os, matrix.arch, hashFiles('scripts/ci/build-qt.py')) }}
++      - name: Build native Qt SDK on Windows
++        if: matrix.os == 'windows'
++        shell: powershell
++        run: .\scripts\ci\run-windows.ps1 -Architecture $env:RELEASE_ARCH -SdkOnly
++      - name: Install official Qt SDK on macOS
++        if: matrix.os == 'macos'
++        run: |
++          prefix="tooling/qt-sdk-$RELEASE_ARCH"
++          if [ ! -f "$prefix/.8bit-sdk.json" ]; then python -m pip install 'aqtinstall==3.3.0'; fi
++          python scripts/ci/install-qt-macos.py --prefix "$prefix"
++      - name: Build native Qt SDK on Unix
++        if: matrix.os == 'linux'
++        run: |
++          mkdir -p build
++          set +e
++          python scripts/ci/build-qt.py --prefix "tooling/qt-sdk-$RELEASE_ARCH" --jobs 2 > build/qt-sdk-log.txt 2>&1
++          code=$?
++          set -e
++          if [ "$code" -ne 0 ]; then
++            msg=$(grep -E 'CMake Error|ERROR:|Could not find|Feature |ValueError|Traceback|Error:' build/qt-sdk-log.txt | tail -n 8 | tr '\n' '|' | tr '\r' ' ')
++            if [ -z "$msg" ]; then msg=$(tail -n 8 build/qt-sdk-log.txt | tr '\n' '|' | tr '\r' ' '); fi
++            printf '%s\n' "::error::${msg:0:3500}"
++            exit "$code"
++          fi
++      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
++        if: steps.sdk.outputs.cache-hit != 'true'
++        with:
++          path: |
++            tooling/qt-sdk-${{ matrix.arch }}
++            tooling/qt-sources
++          key: ${{ steps.sdk.outputs.cache-primary-key }}
++      - name: Build, test and package Windows
++        if: matrix.os == 'windows'
++        shell: powershell
++        env:
++          BUILD_PACKAGES: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.packages) }}
++        run: |
++          $params = @{Architecture=$env:RELEASE_ARCH}
++          if($env:BUILD_PACKAGES -ne 'true'){$params.BuildOnly=$true}
++          .\scripts\ci\run-windows.ps1 @params
++      - name: Prepare optional macOS signing identity
++        if: matrix.os == 'macos' && github.event_name != 'pull_request'
++        env:
++          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
++          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
++          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
++        run: python scripts/ci/macos-sign.py
++      - name: Build, test and package Unix
++        if: matrix.os != 'windows'
++        env:
++          BUILD_PACKAGES: ${{ github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.packages) }}
++          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
++          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
++          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
++        run: |
++          args=()
++          if [ "$BUILD_PACKAGES" != true ]; then args+=(--build-only); fi
++          jobs=2
++          if [ "$(uname -s)" = Darwin ]; then jobs=$(sysctl -n hw.ncpu); fi
++          python scripts/ci/build.py --qt-root "tooling/qt-sdk-$RELEASE_ARCH" --jobs "$jobs" "${args[@]}"
++      - name: Test Linux bundle on supported distribution families without a Qt SDK
++        if: matrix.os == 'linux' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.packages)
++        run: bash scripts/ci/smoke-distros.sh
++      - name: Upload package candidates
++        if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.packages)
++        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
++        with:
++          name: candidate-${{ matrix.os }}-${{ matrix.arch }}
++          path: |
++            dist/release/*.zip
++            dist/release/*.tar.gz
++            dist/release/*.msi
++            dist/release/*.exe
++            dist/release/*.dmg
++            dist/release/*.deb
++            dist/release/*.rpm
++            dist/release/*.pkg.tar.zst
++            dist/release/manifest-*.json
++          if-no-files-found: error
++      - name: Upload diagnostics
++        if: always()
++        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
++        with:
++          name: diagnostics-${{ matrix.os }}-${{ matrix.arch }}
++          path: |
++            build/ci-*/Testing/Temporary/*
++            build/ci-*/tests/*.txt
++            build/ci-*/tests/*.xml
++            build/package-smoke-*
++            build/win-authoring-log.txt
++            build/qt-sdk-log.txt
++          if-no-files-found: ignore
++  legacy-linux:
++    needs: plan
++    if: (vars.ENABLE_LEGACY32 == 'true' || inputs.legacy32) && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'linux')
++    runs-on: ubuntu-22.04
++    timeout-minutes: 360
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - { arch: x86, platform: linux/386, image: i386/debian:12 }
++          - { arch: armv7, platform: linux/arm/v7, image: arm32v7/debian:12 }
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false }
++      - name: Register distribution-provided user-mode emulation
++        run: |
++          sudo apt-get update
++          sudo apt-get install -y qemu-user-static binfmt-support
++          sudo update-binfmts --enable qemu-arm
++      - name: Build experimental 32-bit target
++        env:
++          IMAGE: ${{ matrix.image }}
++          PLATFORM: ${{ matrix.platform }}
++          RELEASE_ARCH: ${{ matrix.arch }}
++        run: docker run --rm --platform "$PLATFORM" -e RELEASE_ARCH -v "$PWD:/src" -w /src "$IMAGE" bash scripts/ci/legacy-linux.sh
++      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
++        with:
++          name: candidate-linux-${{ matrix.arch }}
++          path: dist/release/*
++          if-no-files-found: error
++  legacy-windows:
++    needs: plan
++    if: (vars.ENABLE_LEGACY32 == 'true' || inputs.legacy32) && (github.event_name != 'workflow_dispatch' || inputs.target == 'all' || inputs.target == 'windows')
++    runs-on: windows-2022
++    timeout-minutes: 360
++    env: { RELEASE_ARCH: x86 }
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false }
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
++        with: { python-version: '3.12', architecture: x64 }
++      - run: choco install nsis --version=3.11 -y --no-progress
++      - shell: powershell
++        run: .\scripts\ci\run-windows.ps1 -Architecture x86
++      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
++        with:
++          name: candidate-windows-x86
++          path: dist/release/*
++          if-no-files-found: error
++  draft-release:
++    needs: [plan, native, legacy-linux, legacy-windows]
++    if: always() && needs.native.result == 'success' && (needs.legacy-linux.result == 'success' || needs.legacy-linux.result == 'skipped') && (needs.legacy-windows.result == 'success' || needs.legacy-windows.result == 'skipped') && (startsWith(github.ref, 'refs/tags/v') || inputs.publish_draft)
++    runs-on: ubuntu-22.04
++    permissions: { contents: write }
++    steps:
++      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
++        with: { persist-credentials: false, fetch-depth: 0 }
++      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
++        with: { python-version: '3.12' }
++      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
++        with:
++          pattern: candidate-*
++          merge-multiple: true
++          path: dist/release
++      - name: Verify target coverage and explicit publication requirements
++        run: python scripts/ci/release-check.py
++      - name: Pin installers and verify the complete artifact inventory
++        env: { RELEASE_REPOSITORY: '${{ github.repository }}' }
++        run: python scripts/ci/distribution.py finalize --out dist/release --repository "$RELEASE_REPOSITORY"
++      - name: Prepare a draft for human review
++        env:
++          GH_TOKEN: ${{ github.token }}
++          RELEASE_REPOSITORY: ${{ github.repository }}
++        run: |
++          version=$(python scripts/ci/distribution.py version)
++          gh release create "v$version" dist/release/* --repo "$RELEASE_REPOSITORY" --draft --verify-tag --title "$version" --notes-file packaging/RELEASE-NOTES.md
+-- 
+2.47.3
+
