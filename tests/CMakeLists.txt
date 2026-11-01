@@ -8,9 +8,9 @@ target_link_libraries(EditorCoreTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME EditorCore COMMAND EditorCoreTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-core.xml,junitxml")
 set_tests_properties(EditorCore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 
-qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h ../src/editor/QRegexSearch.cpp)
-target_include_directories(VimModeTest PRIVATE ../src ../src/editor)
-target_link_libraries(VimModeTest PRIVATE scintilla Qt6::Test)
+qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h)
+target_include_directories(VimModeTest PRIVATE ../src)
+target_link_libraries(VimModeTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME VimMode COMMAND VimModeTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/vim-mode.xml,junitxml")
 set_tests_properties(VimMode PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 
