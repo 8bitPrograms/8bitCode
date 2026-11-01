@@ -8,6 +8,13 @@ target_link_libraries(EditorCoreTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME EditorCore COMMAND EditorCoreTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-core.xml,junitxml")
 set_tests_properties(EditorCore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 
+# Links EightBit::Editor alone: proves the library opens, highlights, edits,
+# undoes and saves a source tab without 8bitPad application code.
+qt_add_executable(EditorLibraryTest EditorLibraryTest.cpp)
+target_link_libraries(EditorLibraryTest PRIVATE EightBit::Editor Qt6::Test)
+add_test(NAME EditorLibrary COMMAND EditorLibraryTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-library.xml,junitxml")
+set_tests_properties(EditorLibrary PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
+
 qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h)
 target_include_directories(VimModeTest PRIVATE ../src)
 target_link_libraries(VimModeTest PRIVATE EightBit::Editor Qt6::Test)
@@ -41,7 +48,7 @@ target_compile_definitions(EditorExtrasTest PRIVATE "BIT8PAD_SOURCE_DIR=\"${BIT8
 add_test(NAME EditorExtras COMMAND EditorExtrasTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-extras.xml,junitxml")
 set_tests_properties(EditorExtras PROPERTIES TIMEOUT 60)
 
-set_target_properties(EditorCoreTest VimModeTest FolderSearchTest NavigationTest EditorExtrasTest
+set_target_properties(EditorCoreTest EditorLibraryTest VimModeTest FolderSearchTest NavigationTest EditorExtrasTest
     PROPERTIES WIN32_EXECUTABLE FALSE)
 
 add_test(NAME ApplicationSmoke COMMAND NotepadNext --smoke-test "${CMAKE_CURRENT_BINARY_DIR}/smoke")
