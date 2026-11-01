@@ -564,6 +564,31 @@ BatchResult Backend::refreshOwnedIcons()
         return result;
     }
 
+    bool changed = false;
+    // After the MSI upgrade from 8bitPad, its install folder is gone and the
+    // registrations it wrote point at a missing exe. Adopt exactly those entries.
+    static const QRegularExpression installed(QStringLiteral("^(.*/Programs/)8bitCode(/(bin/)?)8bitCode\\.exe$"),
+        QRegularExpression::CaseInsensitiveOption);
+    const auto match = installed.match(QDir::fromNativeSeparators(services.executable));
+    const QString legacyExe = match.hasMatch() ? match.captured(1) + "8bitPad" + match.captured(2) + "8bitPad.exe" : QString();
+    if (!legacyExe.isEmpty() && !QFileInfo::exists(legacyExe)) {
+        QStringList keys;
+        QStringList legacyExtensions = registeredExtensions();
+        for (const auto &group : catalog()) legacyExtensions += group.extensions;
+        for (const QString &extension : unique(legacyExtensions)) keys << "8bitPad." + extension;
+        keys << "*/shell/8bitPad" << "Directory/shell/8bitPad" << "Directory/Background/shell/8bitPad";
+        for (const QString &key : keys) {
+            const QString token = key.contains("Background") ? "%V" : "%1";
+            const bool verb = key.contains("/shell/");
+            const QString target = classes + key + (verb ? "/command/." : "/shell/open/command/.");
+            if (QDir::fromNativeSeparators(registry->value(target).toString().trimmed())
+                    .compare(QDir::fromNativeSeparators(windowsOpenCommand(legacyExe, token)), Qt::CaseInsensitive) != 0) continue;
+            registry->setValue(target, windowsOpenCommand(services.executable, token));
+            if (verb) registry->setValue(classes + key + "/Icon", '"' + QDir::toNativeSeparators(services.executable) + "\",0");
+            changed = true;
+        }
+    }
+
     // A portable or isolated copy must never redirect another copy's entries.
     // Only the exact, existing open command establishes ownership here.
     const QString command = QDir::fromNativeSeparators(windowsOpenCommand(services.executable, "%1"));
@@ -571,7 +596,6 @@ BatchResult Backend::refreshOwnedIcons()
         return QDir::fromNativeSeparators(registry->value(classes + handler + "/shell/open/command/.")
             .toString().trimmed()).compare(command, Qt::CaseInsensitive) == 0;
     };
-    bool changed = false;
     bool hasOwnedHandler = false;
     const auto update = [&](const QString &key, const QString &value) {
         if (registry->value(key).toString() != value) {

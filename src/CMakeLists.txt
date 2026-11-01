@@ -98,6 +98,7 @@ qt_add_executable(NotepadNext
 	SessionManager.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
+	LegacyProfileImport.h LegacyProfileImport.cpp
 	ZoomEventWatcher.cpp
 	decorators/ApplicationDecorator.cpp
 	decorators/ApplicationDecorator.h

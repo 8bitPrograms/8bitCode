@@ -71,6 +71,7 @@ private slots:
     void windowsIconRefreshHandlesGenericOpenWithAndEmptyRegistry();
     void windowsNativeIconsCoverSharedApplicationAndSafeFallback();
     void windowsContextToggleDoesNotChangeAssociations();
+    void windowsUpgradeAdoptsOnlyRemoved8bitPadEntries();
     void windowsCleanupIncludesCustomAndPreservesSettings();
     void windowsUnverifiedChangesAreRestored();
     void linuxDeduplicatesAndConfirmsMimeDefaults();
@@ -352,6 +353,34 @@ void FileAssociationsTest::windowsNativeIconsCoverSharedApplicationAndSafeFallba
     QVERIFY(!store.contains(com + "/InprocServer32/."));
     QCOMPARE(store.value("Software/Classes/CLSID/{OTHER-ICON-PROVIDER}/InprocServer32/.").toString(), QString("keep.dll"));
     QCOMPARE(store.value(protectedKey + "Hash").toString(), QString("preserve-windows-choice"));
+}
+
+void FileAssociationsTest::windowsUpgradeAdoptsOnlyRemoved8bitPadEntries()
+{
+    QTemporaryDir temp;
+    QSettings store(temp.filePath("registry.ini"), QSettings::IniFormat);
+    auto portable = windows(store);
+    portable.executable = "D:/Portable 8bitCode/8bitCode.exe";
+    auto installed = windows(store);
+    installed.executable = "C:/Fixture/AppData/Local/Programs/8bitCode/bin/8bitCode.exe";
+    const QString removed = "C:/Fixture/AppData/Local/Programs/8bitPad/bin/8bitPad.exe";
+    const QString classes = "Software/Classes/";
+    store.setValue(classes + "8bitPad.py/shell/open/command/.", windowsOpenCommand(removed, "%1"));
+    store.setValue(classes + "8bitPad.md/shell/open/command/.", windowsOpenCommand("D:/Portable/8bitPad.exe", "%1"));
+    store.setValue(classes + "*/shell/8bitPad/command/.", windowsOpenCommand(removed, "%1"));
+    store.setValue(classes + "Directory/Background/shell/8bitPad/command/.", windowsOpenCommand(removed, "%V"));
+
+    QVERIFY(Backend(portable).refreshOwnedIcons().ok());
+    QCOMPARE(store.value(classes + "8bitPad.py/shell/open/command/.").toString(), windowsOpenCommand(removed, "%1"));
+
+    QVERIFY(Backend(installed).refreshOwnedIcons().ok());
+    QCOMPARE(store.value(classes + "8bitPad.py/shell/open/command/.").toString(), windowsOpenCommand(installed.executable, "%1"));
+    QVERIFY(store.value(classes + "8bitPad.py/DefaultIcon/.").toString().contains("8bitCode.exe"));
+    QCOMPARE(store.value(classes + "8bitPad.md/shell/open/command/.").toString(), windowsOpenCommand("D:/Portable/8bitPad.exe", "%1"));
+    QCOMPARE(store.value(classes + "*/shell/8bitPad/command/.").toString(), windowsOpenCommand(installed.executable, "%1"));
+    QCOMPARE(store.value(classes + "Directory/Background/shell/8bitPad/command/.").toString(), windowsOpenCommand(installed.executable, "%V"));
+    QVERIFY(store.value(classes + "*/shell/8bitPad/Icon").toString().contains("8bitCode.exe"));
+    QVERIFY(!store.contains(classes + "Directory/shell/8bitPad/command/."));
 }
 
 void FileAssociationsTest::windowsContextToggleDoesNotChangeAssociations()
