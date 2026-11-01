@@ -41,7 +41,7 @@ Windows, Linux and macOS curl instructions, installation paths and options are i
 
 Vi mode starts in NORMAL. Press `i` to insert, `Esc` to return, and `:w`, `:q`, `:wq` or `:q!` for file actions. See [doc/VIM.md](doc/VIM.md) for the supported command subset.
 
-Themes include Ayu Dark/Mirage/Light, Catppuccin Mocha/Frappe/Macchiato/Latte, Tokyo Night, Dracula, Nord, Gruvbox, One Dark/Light, Solarized Dark/Light, GitHub Dark/Light, Kanagawa, Rose Pine/Dawn, Everforest, Monokai and Material Ocean, Blueberi and Raspberi. Credits and individual licenses are in [assets/themes/NOTICES.md](assets/themes/NOTICES.md).
+Themes include Ayu Dark/Mirage/Light, Catppuccin Mocha/Frappe/Macchiato/Latte, Tokyo Night, Dracula, Nord, Gruvbox, One Dark/Light, Solarized Dark/Light, GitHub Dark/Light, Kanagawa, Rose Pine/Dawn, Everforest, Monokai and Material Ocean, Blueberi and Raspberi. Credits and individual licenses are in [src/editor/themes/NOTICES.md](src/editor/themes/NOTICES.md).
 
 See [doc/WORKSPACE.md](doc/WORKSPACE.md) for file management, favorites, Markdown preview, DevOps profiles and their boundaries.
 

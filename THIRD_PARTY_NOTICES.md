@@ -18,7 +18,7 @@ The distribution includes or links these open-source components:
 | Qt Advanced Docking System v5.1.1 | LGPL-2.1-or-later; `licenses/ads/LICENSE` |
 | SingleApplication v3.3.4 | MIT; `licenses/singleapplication/LICENSE` |
 | editorconfig-core-qt | MIT; dependency's LICENSE file |
-| Editor theme palettes | See `assets/themes/NOTICES.md` and retained upstream license files |
+| Editor theme palettes | See `src/editor/themes/NOTICES.md` and retained upstream license files |
 
 All application additions are licensed under GPL-3.0-or-later. Theme palettes
 are distributed with their own upstream notices. The Blueberi and Raspberi

@@ -49,6 +49,7 @@ set(CPM_SOURCE_CACHE "${CMAKE_SOURCE_DIR}/.cpm-cache" CACHE PATH "CPM source cac
 include(CTest)
 add_subdirectory(thirdparty)
 include(GNUInstallDirs)
+add_subdirectory(src/editor)
 add_subdirectory(src/update)
 add_subdirectory(src)
 if(BUILD_TESTING)

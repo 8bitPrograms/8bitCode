@@ -32,9 +32,7 @@ qt_add_executable(NotepadNext
     NavigationPanels.h NavigationPanels.cpp
     FunctionExtractor.h FunctionExtractor.cpp
     ShortcutDialog.h ShortcutDialog.cpp
-    ../assets/themes/themes.qrc
 	ApplicationSettings.h
-	ByteArrayUtils.h
 	ColorPickerDelegate.h
 	ComboBoxDelegate.h
 	Converter.h
@@ -46,15 +44,10 @@ qt_add_executable(NotepadNext
 	EditorManager.h
 	EditorPrintPreviewRenderer.h
 	FileDialogHelpers.h
-	Finder.h
 	FocusWatcher.h
 	HtmlConverter.h
-	IFaceTable.h
-	IFaceTableMixer.h
 	ISearchResultsHandler.h
 	LanguageStylesModel.h
-	LuaExtension.h
-	LuaState.h
 	Macro.h
 	MacroListModel.h
 	MacroManager.h
@@ -63,26 +56,17 @@ qt_add_executable(NotepadNext
 	MacroStepTableModel.h
 	NotepadNextApplication.h
 	NppImporter.h
-	QRegexSearch.h
-	RangeAllocator.h
 	RecentFilesListManager.h
 	RecentFilesListMenuBuilder.h
 	RtfConverter.h
-	SciIFaceTable.h
-	ScintillaCommenter.h
-	ScintillaEnums.h
-	ScintillaNext.h
 	SearchResultData.h
 	SearchResultHighlighterDelegate.h
 	SearchResultsCollector.h
-	SelectionTracker.h
 	SessionManager.h
 	SpinBoxDelegate.h
 	TranslationManager.h
-	UndoAction.h
 	ZoomEventWatcher.h
 	resources.qrc
-	scripts.qrc
 	ApplicationSettings.cpp
 	ColorPickerDelegate.cpp
 	ComboBoxDelegate.cpp
@@ -94,13 +78,8 @@ qt_add_executable(NotepadNext
 	EditorManager.cpp
 	EditorPrintPreviewRenderer.cpp
 	FileDialogHelpers.cpp
-	Finder.cpp
 	HtmlConverter.cpp
-	IFaceTable.cpp
-	IFaceTableMixer.cpp
 	LanguageStylesModel.cpp
-	LuaExtension.cpp
-	LuaState.cpp
 	Macro.cpp
 	MacroListModel.cpp
 	MacroManager.cpp
@@ -111,21 +90,14 @@ qt_add_executable(NotepadNext
     AppSmokeTest.cpp AppSmokeTest.h
 	NotepadNextApplication.cpp
 	NppImporter.cpp
-	QRegexSearch.cpp
-	RangeAllocator.cpp
 	RecentFilesListManager.cpp
 	RecentFilesListMenuBuilder.cpp
 	RtfConverter.cpp
-	SciIFaceTable.cpp
-	ScintillaCommenter.cpp
-	ScintillaNext.cpp
 	SearchResultHighlighterDelegate.cpp
 	SearchResultsCollector.cpp
-	SelectionTracker.cpp
 	SessionManager.cpp
 	SpinBoxDelegate.cpp
 	TranslationManager.cpp
-	UndoAction.cpp
 	ZoomEventWatcher.cpp
 	decorators/ApplicationDecorator.cpp
 	decorators/ApplicationDecorator.h
@@ -303,6 +275,7 @@ endif()
 target_link_libraries(NotepadNext
     PRIVATE
         bit8_updates
+        EightBit::Editor
         Qt6::Concurrent
         Qt6::Svg
         Qt6::Core

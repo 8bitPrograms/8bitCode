@@ -29,13 +29,13 @@ fonts, font sizes, and document lexers remain intact. A theme change does not
 reparse a document or rewrite its buffer. Custom syntax colors made through the
 language inspector are replaced by the next theme/language application.
 
-See [theme credits](../assets/themes/NOTICES.md) and the bundled full license
-notices in `assets/themes/licenses/`.
+See [theme credits](../src/editor/themes/NOTICES.md) and the bundled full license
+notices in `src/editor/themes/licenses/`.
 
 ## Integration
 
-Add `src/ThemeManager.h`, `src/ThemeManager.cpp`, and
-`assets/themes/themes.qrc` to the application target. Create a single manager
+Add `src/ThemeManager.h` and `src/ThemeManager.cpp` to the application target
+and link `EightBit::Editor`, which carries `src/editor/themes/themes.qrc`. Create a single manager
 after the Lua state and `EditorManager` are initialized, before opening editors:
 
 ```cpp
@@ -68,7 +68,7 @@ current editor binding. It also preserves whether widget updates were disabled.
 The JSON catalog is validated at application startup for unique IDs, names,
 well-formed colors, and the default theme. The resource is compiled into the
 application, so theme loading does not depend on its working directory or a
-network connection. `assets/themes/validate_catalog.py` checks every palette,
+network connection. `src/editor/themes/validate_catalog.py` checks every palette,
 license reference, resource entry, and minimum body-text contrast offline.
 
 Visual acceptance should include both a light and dark theme on Windows and

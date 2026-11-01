@@ -77,7 +77,7 @@ Copy-Item -LiteralPath (Join-Path $repo 'README.md') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'licenses') -Destination (Join-Path $output 'licenses') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'doc') -Destination (Join-Path $output 'doc') -Recurse
-Copy-Item -LiteralPath (Join-Path $repo 'assets/themes') -Destination (Join-Path $output 'theme-licenses') -Recurse
+Copy-Item -LiteralPath (Join-Path $repo 'src/editor/themes') -Destination (Join-Path $output 'theme-licenses') -Recurse
 @'
 [Paths]
 Prefix=.
