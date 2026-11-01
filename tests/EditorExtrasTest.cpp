@@ -141,18 +141,18 @@ void EditorExtrasTest::sqlDialectsAreBundled()
 {
     const QString root = QStringLiteral(BIT8PAD_SOURCE_DIR);
     const QStringList files = {QStringLiteral("sql-oracle.lua"), QStringLiteral("sql-postgresql.lua"), QStringLiteral("sql-mssql.lua")};
-    QFile init(QDir(root).filePath(QStringLiteral("src/scripts/init.lua")));
+    QFile init(QDir(root).filePath(QStringLiteral("src/editor/scripts/init.lua")));
     QVERIFY2(init.open(QIODevice::ReadOnly), qPrintable(init.fileName()));
     const QString initText = QString::fromUtf8(init.readAll());
     QVERIFY(initText.contains(QStringLiteral("CopySqlLanguage")));
     QVERIFY(initText.contains(QStringLiteral("SQL (Oracle)")));
     QVERIFY(initText.contains(QStringLiteral("SQL (PostgreSQL)")));
     QVERIFY(initText.contains(QStringLiteral("SQL (MSSQL)")));
-    QFile qrc(QDir(root).filePath(QStringLiteral("src/scripts.qrc")));
+    QFile qrc(QDir(root).filePath(QStringLiteral("src/editor/scripts.qrc")));
     QVERIFY(qrc.open(QIODevice::ReadOnly));
     const QString qrcText = QString::fromUtf8(qrc.readAll());
     for (const QString &file : files) {
-        QFile source(QDir(root).filePath(QStringLiteral("src/languages/") + file));
+        QFile source(QDir(root).filePath(QStringLiteral("src/editor/languages/") + file));
         QVERIFY2(source.open(QIODevice::ReadOnly), qPrintable(source.fileName()));
         const QString text = QString::fromUtf8(source.readAll());
         QVERIFY(text.contains(QStringLiteral("CopySqlLanguage")));

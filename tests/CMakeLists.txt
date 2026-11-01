@@ -1,22 +1,15 @@
-qt_add_executable(EditorCoreTest
-    EditorCoreTest.cpp
-    ../src/ScintillaNext.cpp ../src/ScintillaNext.h
-    ../src/Finder.cpp ../src/QRegexSearch.cpp
-    ../src/ScintillaCommenter.cpp ../src/SelectionTracker.cpp
-    ../src/RangeAllocator.cpp ../src/UndoAction.cpp
-)
+qt_add_executable(EditorCoreTest EditorCoreTest.cpp)
 qt_add_executable(UpdateClientTest UpdateClientTest.cpp)
 target_link_libraries(UpdateClientTest PRIVATE bit8_updates Qt6::Test)
 set_target_properties(UpdateClientTest PROPERTIES WIN32_EXECUTABLE FALSE)
 add_test(NAME UpdateClient COMMAND UpdateClientTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/updates.xml,junitxml")
 set_tests_properties(UpdateClient PROPERTIES TIMEOUT 30)
-target_include_directories(EditorCoreTest PRIVATE ../src)
-target_link_libraries(EditorCoreTest PRIVATE scintilla uchardet Qt6::Test)
+target_link_libraries(EditorCoreTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME EditorCore COMMAND EditorCoreTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-core.xml,junitxml")
 set_tests_properties(EditorCore PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 
-qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h ../src/QRegexSearch.cpp)
-target_include_directories(VimModeTest PRIVATE ../src)
+qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h ../src/editor/QRegexSearch.cpp)
+target_include_directories(VimModeTest PRIVATE ../src ../src/editor)
 target_link_libraries(VimModeTest PRIVATE scintilla Qt6::Test)
 add_test(NAME VimMode COMMAND VimModeTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/vim-mode.xml,junitxml")
 set_tests_properties(VimMode PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
