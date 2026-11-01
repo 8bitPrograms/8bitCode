@@ -36,16 +36,18 @@
 
 namespace {
 const QString classes = QStringLiteral("Software/Classes/");
+// Registry keys, ProgIDs and MIME names keep the 8bitPad spelling of earlier
+// releases so existing registrations are still found, updated and removed.
 const QString capabilities = QStringLiteral("Software/8bitPad/Capabilities/");
 const QString manifestKey = QStringLiteral("Software/8bitPad/ShellIntegration/Extensions");
 const QString registeredAppKey = QStringLiteral("Software/RegisteredApplications/8bitPad");
 const QString capabilitiesValue = QStringLiteral("Software\\8bitPad\\Capabilities");
-const QString desktopId = QStringLiteral("8bitpad.desktop");
-const QString folderDesktopId = QStringLiteral("8bitpad-folder.desktop");
+const QString desktopId = QStringLiteral("8bitcode.desktop");
+const QString folderDesktopId = QStringLiteral("8bitcode-folder.desktop");
 const QString iconRevisionKey = QStringLiteral("Software/8bitPad/ShellIntegration/IconRevision");
 const QString iconHandlerClass = QString::fromLatin1(FileIconHandlerWindows::ClassIdString);
 const QString iconHandlerComKey = classes + "CLSID/" + iconHandlerClass;
-const QString applicationIconHandlerKey = classes + "Applications/8bitPad.exe/shellex/IconHandler/.";
+const QString applicationIconHandlerKey = classes + "Applications/8bitCode.exe/shellex/IconHandler/.";
 
 QString iconReference(const QString &executable, int resourceId)
 {
@@ -102,9 +104,9 @@ QString desktopProgram(const QString &path)
 QString desktopEntry(const QString &executable, const QStringList &mimes, bool folders = false)
 {
     return QStringLiteral("[Desktop Entry]\nVersion=1.0\nType=Application\nName=%1\nGenericName=Text Editor\n"
-        "Comment=Open %2 in 8bitPad\nExec=%3 %F\nTerminal=false\nCategories=Development;TextEditor;\n"
+        "Comment=Open %2 in 8bitCode\nExec=%3 %F\nTerminal=false\nCategories=Development;TextEditor;\n"
         "MimeType=%4;\nStartupNotify=true\nX-8bitPad-Managed=true\n")
-        .arg(folders ? QStringLiteral("8bitPad Folder") : QStringLiteral("8bitPad"),
+        .arg(folders ? QStringLiteral("8bitCode Folder") : QStringLiteral("8bitCode"),
              folders ? QStringLiteral("folders") : QStringLiteral("text and code files"), desktopProgram(executable), mimes.join(';'));
 }
 
@@ -376,32 +378,32 @@ BatchResult Backend::apply(const QStringList &extensions, bool requestDefaults)
         auto *registry = services.registry;
         if (!registry) { result.errors << QObject::tr("The user registration store is unavailable."); return result; }
         const QString command = windowsOpenCommand(services.executable, "%1");
-        registry->setValue(capabilities + "ApplicationName", "8bitPad");
-        registry->setValue(capabilities + "ApplicationDescription", "8bitPad text and code editor");
+        registry->setValue(capabilities + "ApplicationName", "8bitCode");
+        registry->setValue(capabilities + "ApplicationDescription", "8bitCode text and code editor");
         registry->setValue(capabilities + "ApplicationIcon", iconReference(services.executable, FileTypeIcons::ApplicationResourceId));
         registry->setValue(registeredAppKey, capabilitiesValue);
-        registry->setValue(classes + "Applications/8bitPad.exe/FriendlyAppName", "8bitPad");
-        registry->setValue(classes + "Applications/8bitPad.exe/DefaultIcon/.",
+        registry->setValue(classes + "Applications/8bitCode.exe/FriendlyAppName", "8bitCode");
+        registry->setValue(classes + "Applications/8bitCode.exe/DefaultIcon/.",
             iconReference(services.executable, FileTypeIcons::forExtension({}).resourceId));
         const QString handler = nativeIconHandler(services);
         if (!handler.isEmpty()) {
-            registry->setValue(iconHandlerComKey + "/.", "8bitPad file icons");
+            registry->setValue(iconHandlerComKey + "/.", "8bitCode file icons");
             registry->setValue(iconHandlerComKey + "/InprocServer32/.", handler);
             registry->setValue(iconHandlerComKey + "/InprocServer32/ThreadingModel", "Apartment");
             registry->setValue(applicationIconHandlerKey, iconHandlerClass);
-            registry->setValue(classes + "Applications/8bitPad.exe/DefaultIcon/.", "%1");
+            registry->setValue(classes + "Applications/8bitCode.exe/DefaultIcon/.", "%1");
         } else if (registry->value(applicationIconHandlerKey).toString().compare(iconHandlerClass, Qt::CaseInsensitive) == 0) {
-            registry->remove(classes + "Applications/8bitPad.exe/shellex/IconHandler");
+            registry->remove(classes + "Applications/8bitCode.exe/shellex/IconHandler");
         }
-        registry->setValue(classes + "Applications/8bitPad.exe/shell/open/command/.", command);
+        registry->setValue(classes + "Applications/8bitCode.exe/shell/open/command/.", command);
         for (const QString &extension : parsed.extensions) {
             const QString progId = "8bitPad." + extension;
             const auto &type = FileTypeIcons::forExtension(extension);
-            registry->setValue(classes + progId + "/.", QStringLiteral("8bitPad %1 document").arg(type.label));
+            registry->setValue(classes + progId + "/.", QStringLiteral("8bitCode %1 document").arg(type.label));
             registry->setValue(classes + progId + "/DefaultIcon/.", iconReference(services.executable, type.resourceId));
             registry->setValue(classes + progId + "/shell/open/command/.", command);
             registry->setValue(classes + '.' + extension + "/OpenWithProgids/" + progId, QString());
-            registry->setValue(classes + "Applications/8bitPad.exe/SupportedTypes/." + extension, QString());
+            registry->setValue(classes + "Applications/8bitCode.exe/SupportedTypes/." + extension, QString());
             registry->setValue(capabilities + "FileAssociations/." + extension, progId);
         }
         registry->setValue(manifestKey, combined);
@@ -419,7 +421,7 @@ BatchResult Backend::apply(const QStringList &extensions, bool requestDefaults)
             const QString backups = QStringLiteral("Software/8bitPad/ShellIntegration/PreviousDefaults/");
             const auto isOurs = [](const QString &actual, const QString &extension) {
                 return actual.compare("8bitPad." + extension, Qt::CaseInsensitive) == 0
-                    || actual.compare(QStringLiteral("Applications\\8bitPad.exe"), Qt::CaseInsensitive) == 0;
+                    || actual.compare(QStringLiteral("Applications\\8bitCode.exe"), Qt::CaseInsensitive) == 0;
             };
             for (const QString &extension : parsed.extensions) {
                 if (services.queryDefaultProgId && isOurs(services.queryDefaultProgId(extension), extension)) {
@@ -487,12 +489,12 @@ BatchResult Backend::apply(const QStringList &extensions, bool requestDefaults)
         // (jsonc/jsx/tsx, for example) with that type. Publish the explicitly
         // selected text/code globs too. Existing recognized text types retain
         // their system MIME; ambiguous .ts/.tsx intentionally use code types.
-        QString xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated by 8bitPad -->\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\n";
+        QString xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated by 8bitCode -->\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\n";
         for (const QString &extension : combined) {
             const QString mime = mimeTypeForExtension(extension);
             const bool custom = mime.startsWith("application/x-8bitpad-");
             xml += QString(" <mime-type type=\"%1\">%2<glob pattern=\"*.%3\" weight=\"60\"/></mime-type>\n")
-                       .arg(mime, custom ? QString("<comment>8bitPad text document</comment><sub-class-of type=\"text/plain\"/>") : QString(), extension);
+                       .arg(mime, custom ? QString("<comment>8bitCode text document</comment><sub-class-of type=\"text/plain\"/>") : QString(), extension);
         }
         xml += "</mime-info>\n";
         if (!writeAtomic(QDir(services.dataHome).filePath("mime/packages/8bitpad-types.xml"), xml.toUtf8(), result.errors)) return result;
@@ -535,7 +537,7 @@ BatchResult Backend::setContextMenuEnabled(bool enabled)
         for (const QString &key : {QString("*/shell/8bitPad"), QString("Directory/shell/8bitPad"), QString("Directory/Background/shell/8bitPad")}) {
             if (!enabled) { services.registry->remove(classes + key); continue; }
             const bool files = key.startsWith('*');
-            services.registry->setValue(classes + key + "/.", files ? "Open with 8bitPad" : "Open folder in 8bitPad");
+            services.registry->setValue(classes + key + "/.", files ? "Open with 8bitCode" : "Open folder in 8bitCode");
             services.registry->setValue(classes + key + "/Icon", '"' + QDir::toNativeSeparators(services.executable) + "\",0");
             services.registry->setValue(classes + key + "/command/.", windowsOpenCommand(services.executable, key.contains("Background") ? "%V" : "%1"));
         }
@@ -588,22 +590,22 @@ BatchResult Backend::refreshOwnedIcons()
     }
     // Windows may have created only the generic Open With application entry,
     // without our extension manifest. Give that route a real document icon too.
-    if (owned("Applications/8bitPad.exe")) {
+    if (owned("Applications/8bitCode.exe")) {
         hasOwnedHandler = true;
         const QString existing = registry->value(applicationIconHandlerKey).toString();
         if (existing.isEmpty() || existing.compare(iconHandlerClass, Qt::CaseInsensitive) == 0) {
             const QString handler = nativeIconHandler(services);
             if (!handler.isEmpty()) {
-                update(iconHandlerComKey + "/.", "8bitPad file icons");
+                update(iconHandlerComKey + "/.", "8bitCode file icons");
                 update(iconHandlerComKey + "/InprocServer32/.", handler);
                 update(iconHandlerComKey + "/InprocServer32/ThreadingModel", "Apartment");
                 update(applicationIconHandlerKey, iconHandlerClass);
-                update(classes + "Applications/8bitPad.exe/DefaultIcon/.", "%1");
+                update(classes + "Applications/8bitCode.exe/DefaultIcon/.", "%1");
             } else {
-                update(classes + "Applications/8bitPad.exe/DefaultIcon/.",
+                update(classes + "Applications/8bitCode.exe/DefaultIcon/.",
                     iconReference(services.executable, FileTypeIcons::forExtension({}).resourceId));
                 if (!existing.isEmpty()) {
-                    registry->remove(classes + "Applications/8bitPad.exe/shellex/IconHandler");
+                    registry->remove(classes + "Applications/8bitCode.exe/shellex/IconHandler");
                     changed = true;
                 }
             }
@@ -646,7 +648,7 @@ BatchResult Backend::removeOwnedRegistration()
                 else services.registry->remove(key);
             }
         }
-        services.registry->remove(classes + "Applications/8bitPad.exe");
+        services.registry->remove(classes + "Applications/8bitCode.exe");
         if (services.registry->value(registeredAppKey).toString() == capabilitiesValue) services.registry->remove(registeredAppKey);
         services.registry->remove("Software/8bitPad/Capabilities");
         services.registry->remove("Software/8bitPad/ShellIntegration");

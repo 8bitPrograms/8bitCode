@@ -39,14 +39,14 @@ class ReleaseSupportTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
             for suffix in ("windows-x64.msi", "linux-x86_64.tar.gz", "source.tar.gz", "qt-6.5.3-source.tar.gz"):
-                (directory / ("8bitPad-1.2.3-" + suffix)).write_bytes(suffix.encode())
+                (directory / ("8bitCode-1.2.3-" + suffix)).write_bytes(suffix.encode())
             result = release.checksums(directory, "1.2.3")
             lines = result.read_text().splitlines()
             self.assertEqual(len(lines), 4)
             for line in lines:
                 digest, name = line.split("  ", 1)
                 self.assertEqual(digest, release.sha256(directory / name))
-            (directory / "8bitPad-1.2.3-source.tar.gz").unlink()
+            (directory / "8bitCode-1.2.3-source.tar.gz").unlink()
             with self.assertRaises(ValueError):
                 release.checksums(directory, "1.2.3")
 

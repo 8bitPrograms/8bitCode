@@ -52,7 +52,7 @@ const SingleApplication::Options opts = SingleApplication::User | SingleApplicat
 
 void parseCommandLine(QCommandLineParser &parser, const QStringList &args)
 {
-    parser.setApplicationDescription("8bitPad - native text editor for Windows and Linux");
+    parser.setApplicationDescription("8bitCode - native text editor for Windows and Linux");
     parser.addHelpOption();
     parser.addVersionOption();
 
@@ -94,7 +94,7 @@ bool NotepadNextApplication::init()
     qInfo(Q_FUNC_INFO);
 
 #ifndef Q_OS_MACOS
-    setWindowIcon(QIcon(QStringLiteral(":/icons/8bitpad.svg")));
+    setWindowIcon(QIcon(QStringLiteral(":/icons/8bitcode.svg")));
 #endif
 
     settings = new ApplicationSettings(this);

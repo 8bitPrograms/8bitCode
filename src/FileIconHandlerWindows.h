@@ -3,7 +3,7 @@
 
 namespace FileIconHandlerWindows {
 inline constexpr char ClassIdString[] = "{D325870F-4B1C-4D26-A03C-3575B1607635}";
-inline constexpr char LibraryFileName[] = "8bitPadFileIcons.dll";
+inline constexpr char LibraryFileName[] = "8bitCodeFileIcons.dll";
 }
 
 #ifdef _WIN32

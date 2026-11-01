@@ -1,4 +1,4 @@
-LIBRARY 8bitPadFileIcons
+LIBRARY 8bitCodeFileIcons
 EXPORTS
     DllGetClassObject PRIVATE
     DllCanUnloadNow PRIVATE

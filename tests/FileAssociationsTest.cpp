@@ -50,7 +50,7 @@ Services linuxServices(const QTemporaryDir &temp)
     services.configHome = temp.filePath("xdg-config");
     services.findExecutable = [](const QString &program) { return "/fake-tools/" + program; };
     services.run = [](const QString &, const QStringList &args) {
-        return CommandResult{true, 0, args.value(0) == "query" ? QString("8bitpad.desktop\n") : QString(), {}};
+        return CommandResult{true, 0, args.value(0) == "query" ? QString("8bitcode.desktop\n") : QString(), {}};
     };
     return services;
 }
@@ -190,7 +190,7 @@ void FileAssociationsTest::windowsExistingApplicationDefaultIsRecognized()
     QSettings store(temp.filePath("registry.ini"), QSettings::IniFormat);
     store.setValue("Software/Classes/.txt/.", "Other.Text");
     auto services = windows(store);
-    services.queryDefaultProgId = [](const QString &) { return QStringLiteral("applications\\8bitpad.exe"); };
+    services.queryDefaultProgId = [](const QString &) { return QStringLiteral("applications\\8bitcode.exe"); };
     const auto result = Backend(services).apply({"txt"}, true);
     QCOMPARE(result.defaultExtensions, QStringList{"txt"});
     QVERIFY(result.pendingDefaultExtensions.isEmpty());
@@ -218,7 +218,7 @@ void FileAssociationsTest::windowsIconsUseEmbeddedTypeResources()
     QVERIFY(references.size() >= 12);
     QCOMPARE(FileTypeIcons::forExtension("SQL").resourceId, FileTypeIcons::forExtension("sql").resourceId);
     QCOMPARE(FileTypeIcons::forExtension("unknown-custom").resourceId, FileTypeIcons::forExtension({}).resourceId);
-    QCOMPARE(store.value("Software/Classes/Applications/8bitPad.exe/DefaultIcon/.").toString(),
+    QCOMPARE(store.value("Software/Classes/Applications/8bitCode.exe/DefaultIcon/.").toString(),
         prefix + QString::number(FileTypeIcons::forExtension({}).resourceId));
     QCOMPARE(store.value("Software/8bitPad/Capabilities/ApplicationIcon").toString(),
         '"' + QDir::toNativeSeparators(services.executable) + QStringLiteral("\",0"));
@@ -238,7 +238,7 @@ void FileAssociationsTest::windowsIconRefreshPreservesDefaultsAndOtherCopies()
     store.setValue("Software/8bitPad/ShellIntegration/PreviousDefaults/sql/Value", "Original.Editor");
     store.setValue("Software/Classes/8bitPad.sql/DefaultIcon/.", "old-app.exe,0");
     store.remove("Software/Classes/8bitPad.py/DefaultIcon");
-    store.remove("Software/Classes/Applications/8bitPad.exe/DefaultIcon");
+    store.remove("Software/Classes/Applications/8bitCode.exe/DefaultIcon");
     store.setValue("Software/Classes/8bitPad.py/shell/open/command/.",
         windowsOpenCommand(services.executable.toUpper(), "%1"));
     // Known legacy registrations can predate the manifest.
@@ -249,7 +249,7 @@ void FileAssociationsTest::windowsIconRefreshPreservesDefaultsAndOtherCopies()
     for (const auto &key : store.allKeys()) before.insert(key, store.value(key));
     const QSet<QString> allowed{
         "Software/Classes/8bitPad.sql/DefaultIcon/.", "Software/Classes/8bitPad.py/DefaultIcon/.",
-        "Software/Classes/8bitPad.md/DefaultIcon/.", "Software/Classes/Applications/8bitPad.exe/DefaultIcon/.",
+        "Software/Classes/8bitPad.md/DefaultIcon/.", "Software/Classes/Applications/8bitCode.exe/DefaultIcon/.",
         "Software/8bitPad/Capabilities/ApplicationIcon", "Software/8bitPad/ShellIntegration/IconRevision"};
     int notifications = 0;
     services.associationsChanged = [&] { ++notifications; };
@@ -266,7 +266,7 @@ void FileAssociationsTest::windowsIconRefreshPreservesDefaultsAndOtherCopies()
     QVERIFY(store.value("Software/Classes/8bitPad.sql/DefaultIcon/.").toString().endsWith(
         ",-" + QString::number(FileTypeIcons::forExtension("sql").resourceId)));
     QVERIFY(store.contains("Software/Classes/8bitPad.py/DefaultIcon/."));
-    QVERIFY(store.contains("Software/Classes/Applications/8bitPad.exe/DefaultIcon/."));
+    QVERIFY(store.contains("Software/Classes/Applications/8bitCode.exe/DefaultIcon/."));
     QVERIFY(backend.refreshOwnedIcons().ok());
     QCOMPARE(notifications, 1); // No cache flush on every launch.
     store.setValue("Software/8bitPad/ShellIntegration/IconRevision", "previous-artwork");
@@ -294,11 +294,11 @@ void FileAssociationsTest::windowsIconRefreshHandlesGenericOpenWithAndEmptyRegis
     QVERIFY(backend.refreshOwnedIcons().ok());
     QVERIFY(store.allKeys().isEmpty());
     QCOMPARE(notifications, 0);
-    store.setValue("Software/Classes/Applications/8bitPad.exe/shell/open/command/.", windowsOpenCommand(services.executable, "%1"));
+    store.setValue("Software/Classes/Applications/8bitCode.exe/shell/open/command/.", windowsOpenCommand(services.executable, "%1"));
     QVERIFY(backend.refreshOwnedIcons().ok());
     QVERIFY(backend.registeredExtensions().isEmpty());
     QCOMPARE(store.allKeys().size(), 3); // Only the old command, icon and revision.
-    QVERIFY(store.contains("Software/Classes/Applications/8bitPad.exe/DefaultIcon/."));
+    QVERIFY(store.contains("Software/Classes/Applications/8bitCode.exe/DefaultIcon/."));
     QCOMPARE(notifications, 1);
 }
 
@@ -311,10 +311,10 @@ void FileAssociationsTest::windowsNativeIconsCoverSharedApplicationAndSafeFallba
         QString::fromLatin1(FileIconHandlerWindows::LibraryFileName));
     const QString clsid = QString::fromLatin1(FileIconHandlerWindows::ClassIdString);
     const QString com = "Software/Classes/CLSID/" + clsid;
-    const QString appIcon = "Software/Classes/Applications/8bitPad.exe/DefaultIcon/.";
-    const QString handlerKey = "Software/Classes/Applications/8bitPad.exe/shellex/IconHandler/.";
+    const QString appIcon = "Software/Classes/Applications/8bitCode.exe/DefaultIcon/.";
+    const QString handlerKey = "Software/Classes/Applications/8bitCode.exe/shellex/IconHandler/.";
     const QString protectedKey = "Software/Microsoft/Windows/CurrentVersion/Explorer/FileExts/.sql/UserChoice/";
-    store.setValue(protectedKey + "ProgId", "Applications\\8bitPad.exe");
+    store.setValue(protectedKey + "ProgId", "Applications\\8bitCode.exe");
     store.setValue(protectedKey + "Hash", "preserve-windows-choice");
     Backend backend(services);
     QVERIFY(backend.apply({"sql", "py"}, true).ok());
@@ -327,7 +327,7 @@ void FileAssociationsTest::windowsNativeIconsCoverSharedApplicationAndSafeFallba
         ",-" + QString::number(FileTypeIcons::forExtension("sql").resourceId)));
 
     // A normal launch upgrades an old generic application record too.
-    store.remove("Software/Classes/Applications/8bitPad.exe/shellex/IconHandler");
+    store.remove("Software/Classes/Applications/8bitCode.exe/shellex/IconHandler");
     store.setValue(appIcon, "old-app.exe,0");
     QVERIFY(backend.refreshOwnedIcons().ok());
     QCOMPARE(store.value(appIcon).toString(), QString("%1"));
@@ -413,13 +413,13 @@ void FileAssociationsTest::linuxDeduplicatesAndConfirmsMimeDefaults()
     QList<QStringList> defaults;
     services.run = [&](const QString &program, const QStringList &args) {
         if (program.endsWith("xdg-mime") && args.value(0) == "default") defaults << args;
-        return CommandResult{true, 0, args.value(0) == "query" ? QString("8bitpad.desktop\n") : QString(), {}};
+        return CommandResult{true, 0, args.value(0) == "query" ? QString("8bitcode.desktop\n") : QString(), {}};
     };
     const auto result = Backend(services).apply({"txt", "log", "ini", "py"}, true);
     QVERIFY2(result.ok(), qPrintable(result.errors.join('\n')));
     QCOMPARE(defaults.size(), 2);
     QCOMPARE(result.defaultMimeTypes, QStringList({"text/plain", "text/x-python"}));
-    const QByteArray entry = readFile(services.dataHome + "/applications/8bitpad.desktop");
+    const QByteArray entry = readFile(services.dataHome + "/applications/8bitcode.desktop");
     QVERIFY(entry.contains("text/plain"));
     QVERIFY(entry.contains("text/x-python"));
     QVERIFY(!entry.contains("inode/directory"));
@@ -460,23 +460,23 @@ void FileAssociationsTest::linuxCustomRegistrationAndCleanupStayInXdg()
     Backend backend(services);
     const auto result = backend.apply({"customnote", "md", "jsonc", "tsx", "ts"});
     QVERIFY2(result.ok(), qPrintable(result.errors.join('\n')));
-    const QByteArray entry = readFile(services.dataHome + "/applications/8bitpad.desktop");
+    const QByteArray entry = readFile(services.dataHome + "/applications/8bitcode.desktop");
     QVERIFY(entry.contains("application/x-8bitpad-customnote"));
     QVERIFY(entry.contains("8bitPad %% edition"));
     QVERIFY(QFileInfo::exists(services.dataHome + "/mime/packages/8bitpad-types.xml"));
     const QByteArray aliases = readFile(services.dataHome + "/mime/packages/8bitpad-types.xml");
     QVERIFY(aliases.contains("*.jsonc") && aliases.contains("*.tsx") && aliases.contains("*.ts"));
     const QString mimeapps = services.configHome + "/mimeapps.list";
-    QVERIFY(writeFile(mimeapps, "# keep comment\n[Default Applications]\ntext/plain=8bitpad.desktop;other.desktop;\nimage/png=viewer.desktop;\n[Added Associations]\ntext/markdown=other.desktop;8bitpad.desktop;\n"));
+    QVERIFY(writeFile(mimeapps, "# keep comment\n[Default Applications]\ntext/plain=8bitcode.desktop;other.desktop;\nimage/png=viewer.desktop;\n[Added Associations]\ntext/markdown=other.desktop;8bitcode.desktop;\n"));
     QVERIFY(writeFile(services.dataHome + "/mime/packages/other-app.xml", "keep"));
     QVERIFY(backend.removeOwnedRegistration().ok());
     const QByteArray after = readFile(mimeapps);
     QVERIFY(after.contains("text/plain=other.desktop;"));
     QVERIFY(after.contains("image/png=viewer.desktop;"));
     QVERIFY(after.contains("# keep comment"));
-    QVERIFY(!after.contains("8bitpad.desktop"));
+    QVERIFY(!after.contains("8bitcode.desktop"));
     QCOMPARE(readFile(services.dataHome + "/mime/packages/other-app.xml"), QByteArray("keep"));
-    QVERIFY(!QFileInfo::exists(services.dataHome + "/applications/8bitpad.desktop"));
+    QVERIFY(!QFileInfo::exists(services.dataHome + "/applications/8bitcode.desktop"));
 }
 
 void FileAssociationsTest::linuxContextToggleIsSeparate()
@@ -487,13 +487,13 @@ void FileAssociationsTest::linuxContextToggleIsSeparate()
     QVERIFY(backend.setContextMenuEnabled(true).ok());
     QVERIFY(backend.contextMenuInstalled());
     QVERIFY(backend.registeredExtensions().isEmpty());
-    const QByteArray folder = readFile(services.dataHome + "/applications/8bitpad-folder.desktop");
+    const QByteArray folder = readFile(services.dataHome + "/applications/8bitcode-folder.desktop");
     QVERIFY(folder.contains("inode/directory"));
     QVERIFY(backend.apply({"txt"}).ok());
-    const QByteArray association = readFile(services.dataHome + "/applications/8bitpad.desktop");
+    const QByteArray association = readFile(services.dataHome + "/applications/8bitcode.desktop");
     QVERIFY(backend.setContextMenuEnabled(false).ok());
     QVERIFY(!backend.contextMenuInstalled());
-    QCOMPARE(readFile(services.dataHome + "/applications/8bitpad.desktop"), association);
+    QCOMPARE(readFile(services.dataHome + "/applications/8bitcode.desktop"), association);
     QCOMPARE(backend.registeredExtensions(), QStringList{"txt"});
 }
 

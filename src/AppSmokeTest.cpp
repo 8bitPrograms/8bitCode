@@ -149,11 +149,11 @@ void runAppSmokeTest(NotepadNextApplication *app, MainWindow *window, const QStr
 
     window->resize(1280, 800);
     QCoreApplication::processEvents();
-    check("application-icon", QIcon(":/icons/8bitpad.svg").pixmap(256, 256).save(QDir(outputDirectory).filePath("8bitpad-icon.png")));
-    check("dark-screenshot", window->grab().save(QDir(outputDirectory).filePath("8bitpad-ayu.png")));
+    check("application-icon", QIcon(":/icons/8bitcode.svg").pixmap(256, 256).save(QDir(outputDirectory).filePath("8bitcode-icon.png")));
+    check("dark-screenshot", window->grab().save(QDir(outputDirectory).filePath("8bitcode-ayu.png")));
     app->getThemeManager()->setTheme("github-light");
     QCoreApplication::processEvents();
-    check("light-screenshot", window->grab().save(QDir(outputDirectory).filePath("8bitpad-light.png")));
+    check("light-screenshot", window->grab().save(QDir(outputDirectory).filePath("8bitcode-light.png")));
     app->getThemeManager()->setTheme("ayu-mirage");
 #ifdef BIT8PAD_TESTING
     for (const auto &entry : runWorkspaceUiChecks(app, window, outputDirectory)) {

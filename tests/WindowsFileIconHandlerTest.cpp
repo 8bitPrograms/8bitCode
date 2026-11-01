@@ -57,7 +57,7 @@ void WindowsFileIconHandlerTest::initTestCase()
 {
     const QString path = QDir::toNativeSeparators(QStringLiteral(BIT8PAD_ICON_HANDLER_DLL));
     QVERIFY2(QFileInfo::exists(path), qPrintable(path));
-    executable = QDir::toNativeSeparators(QFileInfo(path).absoluteDir().filePath("8bitPad.exe"));
+    executable = QDir::toNativeSeparators(QFileInfo(path).absoluteDir().filePath("8bitCode.exe"));
     module = LoadLibraryExW(path.toStdWString().c_str(), nullptr,
         LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
     QVERIFY2(module, qPrintable(QString("Cannot load native handler: %1").arg(GetLastError())));

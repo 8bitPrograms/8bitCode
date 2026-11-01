@@ -15,7 +15,7 @@
 
 void setupPadUpdates(QMainWindow *window, QMenu *help, const QString &settingsFile, bool startupCheck)
 {
-    auto *client = new UpdateClient(QStringLiteral("8bitPad"), QStringLiteral("8bitPrograms/8bitPad"),
+    auto *client = new UpdateClient(QStringLiteral("8bitCode"), QStringLiteral("8bitPrograms/8bitPad"),
         QCoreApplication::applicationVersion(), settingsFile, qApp);
     client->setObjectName(QStringLiteral("appUpdater"));
     auto *action = help->addAction(QObject::tr("Updates..."));
@@ -24,14 +24,14 @@ void setupPadUpdates(QMainWindow *window, QMenu *help, const QString &settingsFi
         if (!window->close()) client->cancelInstall();
     });
     QObject::connect(client, &UpdateClient::updateFound, window, [window, client] {
-        window->statusBar()->showMessage(QObject::tr("8bitPad %1 is available. Open Help > Updates to review it.")
+        window->statusBar()->showMessage(QObject::tr("8bitCode %1 is available. Open Help > Updates to review it.")
             .arg(client->latestVersion()), 15000);
     });
     QObject::connect(action, &QAction::triggered, window, [window, client] {
         auto *dialog = new QDialog(window);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->setObjectName(QStringLiteral("updatesDialog"));
-        dialog->setWindowTitle(QObject::tr("8bitPad updates"));
+        dialog->setWindowTitle(QObject::tr("8bitCode updates"));
         dialog->resize(560, 420);
         auto *layout = new QVBoxLayout(dialog);
         auto *version = new QLabel(QObject::tr("Current version: %1").arg(client->currentVersion()), dialog);

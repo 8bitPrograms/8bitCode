@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=8bitPad
+Name=8bitCode
 Comment=Native text and source code editor
-Exec=8bitPad %F
-Icon=8bitpad
+Exec=8bitcode %F
+Icon=8bitcode
 Terminal=false
 Type=Application
 Categories=Development;TextEditor;
 MimeType=text/plain;text/x-csrc;text/x-c++src;text/x-python;application/json;application/xml;application/sql;text/markdown;inode/directory;
 StartupNotify=true
-StartupWMClass=8bitPad
+StartupWMClass=8bitCode

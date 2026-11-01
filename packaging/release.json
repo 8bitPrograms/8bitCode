@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "app": "8bitPad",
-  "slug": "8bitpad",
+  "app": "8bitCode",
+  "slug": "8bitcode",
   "environment": "BIT8PAD",
   "cmakeTarget": "NotepadNext",
   "versionFile": "CMakeLists.txt",
   "qtVersion": "6.11.2",
   "linuxGlibc": "2.35",
   "macosMinimum": "14.4",
-  "maintainer": "8bitPad contributors",
+  "maintainer": "8bitCode contributors",
   "description": "Native text and code editor",
   "license": "GPL-3.0-or-later",
   "upgradeCode": "672CB70D-9BEE-47A3-9462-9013D2B29A44",
-  "iconSvg": "icon/8bitpad.svg",
+  "iconSvg": "icon/8bitcode.svg",
   "iconIco": "icon/8bitPad.ico",
   "iconIcns": "icon/8bitpad.icns",
   "repository": "8bitPrograms/8bitPad",
@@ -41,6 +41,7 @@
   "publisher": "8bitPrograms",
   "startMenuFolder": "8bitPrograms",
   "commandAliases": [
+    "8bitcode",
     "8bitpad",
     "8p"
   ]

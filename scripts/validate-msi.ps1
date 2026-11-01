@@ -71,12 +71,12 @@ try {
     Assert ($properties['MSIRESTARTMANAGERCONTROL'] -eq 'DisableShutdown' -and $properties['MSIDISABLERMRESTART'] -eq '1') 'Installer does not shut down or restart the application automatically'
     Assert ($files.Count -eq @($manifest.files).Count) 'MSI file table has exactly the manifested payload'
     Assert (@($components | Where-Object { ([int]$_.Attributes -band 260) -ne 260 }).Count -eq 0) 'Every component is x64 and uses a registry key path'
-    Assert (@($registry | Where-Object { $_.Root -ne '1' -or $_.Key -ne 'Software\8bitPad\Installer\Components' }).Count -eq 0) 'Registry entries are only owned HKCU installer markers'
-    $launch=@($shortcuts | Where-Object { $_.Target -eq '[INSTALLFOLDER]8bitPad.exe' })
+    Assert (@($registry | Where-Object { $_.Root -ne '1' -or $_.Key -ne 'Software\8bitCode\Installer\Components' }).Count -eq 0) 'Registry entries are only owned HKCU installer markers'
+    $launch=@($shortcuts | Where-Object { $_.Target -eq '[INSTALLFOLDER]8bitCode.exe' })
     $uninstall=@($shortcuts | Where-Object { $_.Target -eq '[System64Folder]msiexec.exe' })
     Assert ($shortcuts.Count -eq 2 -and @($shortcuts | Where-Object { $_.Directory -ne 'BitPadMenuFolder' }).Count -eq 0 -and $launch.Count -eq 1 -and $launch[0].WorkingDirectory -eq 'INSTALLFOLDER') 'Launch and uninstall shortcuts share the 8bitPrograms folder'
     Assert ($uninstall.Count -eq 1 -and $uninstall[0].Arguments -eq ('/x {'+$manifest.productCode+'}')) 'Uninstall shortcut targets this exact ProductCode' 
-    Assert (@($remove | Where-Object { $_.FileName -or $_.Mode -ne '2' -or ($_.Directory -notin 'INSTALLFOLDER','BitPadMenuFolder' -and $_.Directory -notmatch '^D_[a-f0-9]{32}$') }).Count -eq 0) 'Uninstall only removes empty 8bitPad-owned directories'
+    Assert (@($remove | Where-Object { $_.FileName -or $_.Mode -ne '2' -or ($_.Directory -notin 'INSTALLFOLDER','BitPadMenuFolder' -and $_.Directory -notmatch '^D_[a-f0-9]{32}$') }).Count -eq 0) 'Uninstall only removes empty 8bitCode-owned directories'
     foreach ($table in @('Extension','ProgId','Class','ServiceInstall','ServiceControl','Environment','RemoveRegistry')) {
         Assert ($tables -notcontains $table) ("No $table side effects are present")
     }
@@ -88,7 +88,7 @@ try {
         } else { Assert ($action.Type -eq '51') ($action.Action + ' only sets a property; it cannot execute a program') }
     }
     $setDirectory = @($actions | Where-Object { $_.Action -eq 'SetINSTALLFOLDER' })
-    Assert ($setDirectory.Count -eq 1 -and $setDirectory[0].Source -eq 'INSTALLFOLDER' -and $setDirectory[0].Target -eq '[LocalAppDataFolder]Programs\8bitPad') 'Installation target is LocalAppData/Programs/8bitPad'
+    Assert ($setDirectory.Count -eq 1 -and $setDirectory[0].Source -eq 'INSTALLFOLDER' -and $setDirectory[0].Target -eq '[LocalAppDataFolder]Programs\8bitCode') 'Installation target is LocalAppData/Programs/8bitCode'
     $order = @{}
     foreach ($row in $sequence) { $order[$row.Action] = [int]$row.Sequence }
     Assert ($order['RemoveExistingProducts'] -gt $order['InstallInitialize'] -and $order['RemoveExistingProducts'] -lt $order['InstallFinalize']) 'Upgrade removal is inside the rollback transaction'

@@ -69,10 +69,10 @@ try {
     & $tools.CTest --test-dir $build --output-on-failure --no-tests=error
     if ($LASTEXITCODE) { throw 'Tests failed.' }
     if ($Package) {
-        if (!$PackageDirectory) { $PackageDirectory = 'dist/8bitPad-windows-x64-' + (Get-Date -Format 'yyyyMMdd-HHmmss') }
+        if (!$PackageDirectory) { $PackageDirectory = 'dist/8bitCode-windows-x64-' + (Get-Date -Format 'yyyyMMdd-HHmmss') }
         & (Join-Path $PSScriptRoot 'package-windows.ps1') -QtRoot $tools.QtRoot -QtCompatRoot $tools.QtCompatRoot -BuildDirectory $build -OutputDirectory $PackageDirectory
     }
-    Write-Host "Windows build and tests succeeded: $build/8bitPad.exe"
+    Write-Host "Windows build and tests succeeded: $build/8bitCode.exe"
 } finally {
     Pop-Location
     foreach ($name in $savedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }

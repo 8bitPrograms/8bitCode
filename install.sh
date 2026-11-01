@@ -2,9 +2,9 @@
 # The installer uses only tools supplied by a supported desktop OS.
 set -eu
 umask 022
-app='8bitPad'
-command_names='8bitpad 8p'
-slug='8bitpad'
+app='8bitCode'
+command_names='8bitcode 8bitpad 8p'
+slug='8bitcode'
 repository="${BIT8PAD_REPOSITORY:-@REPOSITORY@}"
 version=latest
 system=''
@@ -13,7 +13,7 @@ experimental=0
 download_only=0
 portable=''
 fixture=''
-install_root="${HOME}/.local/opt/8bitpad"
+install_root="${HOME}/.local/opt/8bitcode"
 bin_dir="${HOME}/.local/bin"
 data_dir="${XDG_DATA_HOME:-${HOME}/.local/share}"
 apps_dir="${HOME}/Applications"
@@ -64,8 +64,8 @@ for path in "$install_root" "$bin_dir" "$data_dir" "$apps_dir" "$download_dir" "
 '*) die 'Installation paths must not contain quotes, shell expansions, or line breaks.';;esac
 done
 command -v curl >/dev/null 2>&1 || [ -n "$fixture" ] || die 'The curl command is unavailable.'
-work=$(mktemp -d "${TMPDIR:-/tmp}/8bitPad.install.XXXXXX")
-cleanup(){ case "$work" in */8bitPad.install.*)rm -rf -- "$work";;esac; }
+work=$(mktemp -d "${TMPDIR:-/tmp}/8bitCode.install.XXXXXX")
+cleanup(){ case "$work" in */8bitCode.install.*)rm -rf -- "$work";;esac; }
 trap cleanup EXIT HUP INT TERM
 fetch(){
  name=$1;dest=$2;release=$3
@@ -153,10 +153,16 @@ if [ "$system" = linux ];then
 else
  command_target="$install_root/current/$app.app/Contents/MacOS/$app"
 fi
+# 8bitpad and 8p were written by the 8bitPad installer; take over only those exact launchers.
+legacy_command(){
+ [ ! -L "$1" ] && [ "$(sed -n 1p "$1")" = '#!/bin/sh' ] && awk 'END{exit NR!=2}' "$1" || return 1
+ case "$(sed -n 2p "$1")" in 'exec "'*'/current/8bitPad" "$@"'|'exec "'*'/current/8bitPad.app/Contents/MacOS/8bitPad" "$@"')return 0;;esac
+ return 1
+}
 for command_name in $command_names;do
  command_file="$bin_dir/$command_name"
  # An alias may already belong to another tool. Never overwrite it.
- if [ -e "$command_file" ] || [ -L "$command_file" ];then
+ if { [ -e "$command_file" ] || [ -L "$command_file" ]; } && ! legacy_command "$command_file";then
   [ ! -L "$command_file" ] && printf '#!/bin/sh\nexec "%s" "$@"\n' "$command_target" | cmp -s - "$command_file" || die "Command already belongs to another installation: $command_file"
  else
   printf '#!/bin/sh\nexec "%s" "$@"\n' "$command_target" > "$command_file"

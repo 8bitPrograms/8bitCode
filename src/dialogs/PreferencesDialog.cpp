@@ -56,7 +56,7 @@ PreferencesDialog::PreferencesDialog(ApplicationSettings *settings, QWidget *par
     });
     setupCategoryNavigation();
     populateThemeComboBox();
-    auto *version = new QPushButton(tr("8bitPad %1").arg(QCoreApplication::applicationVersion()), this);
+    auto *version = new QPushButton(tr("8bitCode %1").arg(QCoreApplication::applicationVersion()), this);
     version->setObjectName(QStringLiteral("applicationVersionButton"));
     version->setFlat(true);
     version->setAccessibleName(tr("Application version"));

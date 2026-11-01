@@ -19,4 +19,4 @@ cmake --build "$build_dir" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}" \
     ctest --test-dir "$build_dir" --output-on-failure --no-tests=error --timeout 90
 
-printf 'Build and tests completed. Executable: %s/src/8bitPad\n' "$build_dir"
+printf 'Build and tests completed. Executable: %s/src/8bitCode\n' "$build_dir"

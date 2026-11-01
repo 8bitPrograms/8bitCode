@@ -65,7 +65,7 @@ def fetch_tool(manifest: Path, name: str, directory: Path, verify_only: bool = F
     try:
         with tempfile.NamedTemporaryFile(dir=directory, delete=False) as output:
             temporary = Path(output.name)
-            request = urllib.request.Request(entry["url"], headers={"User-Agent": "8bitPad-build"})
+            request = urllib.request.Request(entry["url"], headers={"User-Agent": "8bitCode-build"})
             with urllib.request.urlopen(request, timeout=60) as response:
                 if not response.url.startswith("https://"):
                     raise ValueError("Tool download redirected away from HTTPS")
@@ -81,7 +81,7 @@ def fetch_tool(manifest: Path, name: str, directory: Path, verify_only: bool = F
 
 def checksums(directory: Path, version: str) -> Path:
     version = checked_version(version)
-    required = [f"8bitPad-{version}-windows-x64.msi", f"8bitPad-{version}-linux-x86_64.tar.gz", f"8bitPad-{version}-source.tar.gz", f"8bitPad-{version}-qt-6.5.3-source.tar.gz"]
+    required = [f"8bitCode-{version}-windows-x64.msi", f"8bitCode-{version}-linux-x86_64.tar.gz", f"8bitCode-{version}-source.tar.gz", f"8bitCode-{version}-qt-6.5.3-source.tar.gz"]
     for name in required:
         if not (directory / name).is_file():
             raise ValueError(f"Missing release asset: {name}")
@@ -118,12 +118,12 @@ def source_archive(directory: Path, version: str) -> Path:
         relative = f"dependency-sources/{name}/CMakeLists.txt"
         subprocess.run(["git", "ls-files", "--error-unmatch", relative], cwd=ROOT, check=True, stdout=subprocess.DEVNULL)
     directory.mkdir(parents=True, exist_ok=True)
-    target = directory / f"8bitPad-{version}-source.tar.gz"
+    target = directory / f"8bitCode-{version}-source.tar.gz"
     if target.exists():
         raise ValueError(f"Refusing to overwrite {target}")
-    subprocess.run(["git", "archive", "--format=tar.gz", f"--prefix=8bitPad-{version}/", f"--output={target.resolve()}", "HEAD"], cwd=ROOT, check=True)
+    subprocess.run(["git", "archive", "--format=tar.gz", f"--prefix=8bitCode-{version}/", f"--output={target.resolve()}", "HEAD"], cwd=ROOT, check=True)
     for source, suffix in (("LICENSE", "LICENSE.txt"), ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md")):
-        shutil.copyfile(ROOT / source, directory / f"8bitPad-{version}-{suffix}")
+        shutil.copyfile(ROOT / source, directory / f"8bitCode-{version}-{suffix}")
     return target
 
 
@@ -133,7 +133,7 @@ def qt_sources(directory: Path, version: str, cache: Path, licenses: Path) -> Pa
     if licenses.exists():
         raise ValueError("Qt license output must be a fresh directory")
     directory.mkdir(parents=True, exist_ok=True)
-    target = directory / f"8bitPad-{version}-qt-6.5.3-source.tar.gz"
+    target = directory / f"8bitCode-{version}-qt-6.5.3-source.tar.gz"
     if target.exists():
         raise ValueError("Qt source output already exists")
     manifest = Path(__file__).with_name("release-tools.json")

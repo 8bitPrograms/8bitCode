@@ -13,7 +13,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version 2
-$app='8bitPad'
+$app='8bitCode'
 if(!$Repository){$Repository='@REPOSITORY@'}
 if($Repository.Contains('@') -or $Repository -match '^OWNER/' -or $Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'){throw 'Set -Repository to the actual GitHub owner/repository.'}
 if($Version -ne 'latest'){
@@ -28,7 +28,7 @@ if(!$Architecture){
 }
 [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12
 $tempBase=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'
-$temp=Join-Path $tempBase ("8bitPad-install-"+[guid]::NewGuid().ToString('N'))
+$temp=Join-Path $tempBase ("8bitCode-install-"+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp | Out-Null
 function Fetch([string]$Name,[string]$Destination,[string]$Release){
  if($FixtureDirectory){Copy-Item -LiteralPath (Join-Path $FixtureDirectory $Name) -Destination $Destination}
@@ -94,6 +94,6 @@ try{
  Write-Output "Portable $app $releaseVersion is ready in $InstallDirectory. Run Start-Portable.cmd."
 }finally{
  $resolved=[IO.Path]::GetFullPath($temp)
- if(!$resolved.StartsWith($tempBase,[StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notlike '8bitPad-install-*'){throw 'Unexpected cleanup path'}
+ if(!$resolved.StartsWith($tempBase,[StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $resolved) -notlike '8bitCode-install-*'){throw 'Unexpected cleanup path'}
  Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction SilentlyContinue
 }

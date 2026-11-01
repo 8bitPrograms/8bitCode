@@ -30,7 +30,7 @@ TerminalPreferences::TerminalPreferences(QSettings *settings, QWidget *parent, D
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(16);
-    auto *description = new QLabel(tr("Open Shell opens the selected folder in a separate terminal application. It does not add a terminal panel to 8bitPad."), this);
+    auto *description = new QLabel(tr("Open Shell opens the selected folder in a separate terminal application. It does not add a terminal panel to 8bitCode."), this);
     description->setObjectName(QStringLiteral("terminalDescription"));
     description->setWordWrap(true);
     layout->addWidget(description);

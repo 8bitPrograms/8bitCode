@@ -32,7 +32,7 @@
         <file>icons/bin_closed.png</file>
         <file>icons/printer.png</file>
         <file>icons/NotepadNext.png</file>
-        <file alias="icons/8bitpad.svg">../icon/8bitpad.svg</file>
+        <file alias="icons/8bitcode.svg">../icon/8bitcode.svg</file>
         <file>icons/cog.png</file>
         <file>icons/table_delete.png</file>
         <file>icons/table_row_delete.png</file>

@@ -40,7 +40,7 @@ constexpr auto counterKey = "Notes/Counter";
 
 QString defaultDirectory()
 {
-    return QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("8bitPad Notes"));
+    return QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("8bitCode Notes"));
 }
 
 class TakeNotesController final : public QObject
