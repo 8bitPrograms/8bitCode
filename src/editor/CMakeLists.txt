@@ -49,6 +49,11 @@ target_link_libraries(EightBitEditor
 # linker scans before libscintilla. An object library linked through the
 # interface goes straight into each consumer on every platform, without
 # Q_INIT_RESOURCE calls or link-order tricks.
+#
+# The flip side: these objects are copied into every target that links
+# EightBit::Editor. Link it only from final binaries (executables, tests),
+# PRIVATE and once per binary, never through another static library, or the
+# resource initialisers and CreateRegexSearch() would be defined twice.
 add_library(EightBitEditorObjects OBJECT
     QRegexSearch.h QRegexSearch.cpp
     scripts.qrc
