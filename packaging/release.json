@@ -40,6 +40,9 @@
   },
   "publisher": "8bitPrograms",
   "startMenuFolder": "8bitPrograms",
+  "replaces": [
+    "8bitpad"
+  ],
   "commandAliases": [
     "8bitcode",
     "8bitpad",

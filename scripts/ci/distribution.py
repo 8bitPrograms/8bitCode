@@ -99,7 +99,8 @@ def launcher(stage):
     c=config();app=c["app"];stage=Path(stage)
     head='#!/bin/sh\nset -eu\nbase=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)\n'
     script=head+'export QT_PLUGIN_PATH="$base/plugins"\nexport QML_IMPORT_PATH="$base/qml"\nexport QML2_IMPORT_PATH="$base/qml"\nexport QT_QPA_FONTDIR="$base/fonts"\n'
-    for name in dict.fromkeys([app]+c.get("commandAliases",[])):
+    # Portable archives may be unpacked on case-insensitive filesystems: no case-only duplicates.
+    for name in [n for n in dict.fromkeys([app]+c.get("commandAliases",[])) if n==app or n.casefold()!=app.casefold()]:
         p=stage/name;p.write_text(script+f'exec "$base/bin/{app}" "$@"\n');p.chmod(0o755)
     p=stage/"Start-Portable.sh";p.write_text(head+f'export {c["environment"]}_PROFILE="$base/profile"\nexec "$base/{app}" "$@"\n');p.chmod(0o755)
     (stage/"bin/qt.conf").write_text("[Paths]\nPrefix=..\nLibraries=lib\nPlugins=plugins\nQmlImports=qml\nTranslations=translations\n")
@@ -118,6 +119,10 @@ def linux_packages(stage,out,cpu):
     c=config();app=c["app"];slug=c["slug"];v=version();stage=Path(stage).resolve();out=Path(out).resolve()
     da={"x64":"amd64","arm64":"arm64","x86":"i386","armv7":"armhf"}[cpu]
     ra={"x64":"x86_64","arm64":"aarch64","x86":"i686","armv7":"armv7hl"}[cpu]
+    former=", ".join(c.get("replaces",[]))  # earlier package names this package upgrades in place
+    deb_rel=f"Conflicts: {former}\nReplaces: {former}\n" if former else ""
+    rpm_rel="".join(f"Obsoletes: {n}\nConflicts: {n}\n" for n in c.get("replaces",[]))
+    pac_rel="".join(f"replaces = {n}\nconflict = {n}\n" for n in c.get("replaces",[]))
     aa={"x64":"x86_64","arm64":"aarch64","x86":"i686","armv7":"armv7h"}[cpu]
     work=out/("native-"+cpu);payload=work/"root";payload.mkdir(parents=True,exist_ok=False)
     shutil.copytree(stage,payload/"opt"/slug/v,symlinks=False)
@@ -129,7 +134,7 @@ def linux_packages(stage,out,cpu):
     icons=payload/"usr/share/icons/hicolor/scalable/apps";icons.mkdir(parents=True)
     shutil.copy2(ROOT/c["iconSvg"],icons/(slug+".svg"))
     control=work/"control";control.mkdir()
-    (control/"control").write_text(f'Package: {slug}\nVersion: {v}\nArchitecture: {da}\nMaintainer: {c["maintainer"]}\nSection: utils\nPriority: optional\nDepends: libc6 (>= {c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"])})\nDescription: {c["description"]}\n Qt and non-system runtime libraries are bundled privately.\n')
+    (control/"control").write_text(f'Package: {slug}\nVersion: {v}\nArchitecture: {da}\nMaintainer: {c["maintainer"]}\nSection: utils\nPriority: optional\n{deb_rel}Depends: libc6 (>= {c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"])})\nDescription: {c["description"]}\n Qt and non-system runtime libraries are bundled privately.\n')
     with tarfile.open(work/"control.tar.gz","w:gz") as t:t.add(control/"control",arcname="./control",filter=root_owner)
     with tarfile.open(work/"data.tar.gz","w:gz",dereference=True) as t:
         for p in payload.iterdir():t.add(p,arcname="./"+p.name,filter=root_owner)
@@ -150,7 +155,7 @@ Summary: {c["description"]}
 License: {c["license"]}
 BuildArch: {ra}
 AutoReqProv: no
-Requires: glibc >= {c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"])}
+{rpm_rel}Requires: glibc >= {c.get("linuxGlibcByArch",{}).get(cpu,c["linuxGlibc"])}
 %global __os_install_post %{{nil}}
 %description
 {c["description"]}. Runtime libraries are bundled.
@@ -169,7 +174,7 @@ cp -a "{payload}/." %{{buildroot}}/
     built=list((top/"RPMS").rglob("*.rpm"))
     if len(built)!=1:raise ValueError("Expected one RPM")
     shutil.copy2(built[0],out/f'{app}-{v}-linux-{cpu}.rpm')
-    (payload/".PKGINFO").write_text(f'pkgname = {slug}\npkgbase = {slug}\npkgver = {v}-1\npkgdesc = {c["description"]}\nurl = https://github.com/{os.environ.get("GITHUB_REPOSITORY","UNCONFIGURED")}\nbuilddate = {os.environ.get("SOURCE_DATE_EPOCH","0")}\npackager = {c["maintainer"]}\nsize = {sum(p.stat().st_size for p in payload.rglob("*") if p.is_file())}\narch = {aa}\nlicense = {c["license"]}\ndepend = glibc\n')
+    (payload/".PKGINFO").write_text(f'pkgname = {slug}\npkgbase = {slug}\n{pac_rel}pkgver = {v}-1\npkgdesc = {c["description"]}\nurl = https://github.com/{os.environ.get("GITHUB_REPOSITORY","UNCONFIGURED")}\nbuilddate = {os.environ.get("SOURCE_DATE_EPOCH","0")}\npackager = {c["maintainer"]}\nsize = {sum(p.stat().st_size for p in payload.rglob("*") if p.is_file())}\narch = {aa}\nlicense = {c["license"]}\ndepend = glibc\n')
     raw=work/"package.tar"
     with tarfile.open(raw,"w",dereference=True) as t:
         for p in payload.iterdir():t.add(p,arcname=p.name,filter=root_owner)

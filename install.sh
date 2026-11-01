@@ -155,7 +155,7 @@ else
 fi
 # 8bitpad and 8p were written by the 8bitPad installer; take over only those exact launchers.
 legacy_command(){
- [ ! -L "$1" ] && [ "$(sed -n 1p "$1")" = '#!/bin/sh' ] && awk 'END{exit NR!=2}' "$1" || return 1
+ [ -f "$1" ] && [ ! -L "$1" ] && [ "$(sed -n 1p "$1")" = '#!/bin/sh' ] && awk 'END{exit NR!=2}' "$1" || return 1
  case "$(sed -n 2p "$1")" in 'exec "'*'/current/8bitPad" "$@"'|'exec "'*'/current/8bitPad.app/Contents/MacOS/8bitPad" "$@"')return 0;;esac
  return 1
 }
@@ -169,5 +169,14 @@ for command_name in $command_names;do
   chmod 755 "$command_file"
  fi
 done
+# Drop the 8bitPad installer's own menu entry and launchers; anything edited or foreign stays.
+if [ "$system" = linux ];then
+ legacy_command "$bin_dir/8bitPad" && rm -f -- "$bin_dir/8bitPad"
+ old_desktop="$data_dir/applications/8bitpad.desktop";old_icon=$(sed -n 5p "$old_desktop" 2>/dev/null) || old_icon=''
+ case "$old_icon" in 'Icon='*'/current/share/icons/hicolor/scalable/apps/8bitpad.svg')
+  [ ! -L "$old_desktop" ] && printf '[Desktop Entry]\nType=Application\nName=8bitPad\nExec="%s/8bitPad" %%F\n%s\nTerminal=false\nCategories=Development;Utility;\n' "$bin_dir" "$old_icon" | cmp -s - "$old_desktop" && rm -f -- "$old_desktop";;esac
+else
+ case "$(readlink -- "$apps_dir/8bitPad.app" 2>/dev/null)" in */current/8bitPad.app)rm -f -- "$apps_dir/8bitPad.app";;esac
+fi
 case ":$PATH:" in *":$bin_dir:"*) :;; *) printf 'Commands installed in %s; add that directory to your shell PATH.\n' "$bin_dir";; esac
 printf '%s\n' "$app $release_version installed for your user. Existing profiles and previous versions were kept."

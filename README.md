@@ -1,4 +1,4 @@
-# 8bitPad
+# 8bitCode
 **Current version: 1.0.0.** Pixel Core branding: cobalt blue pixel tile, stepped corners and charcoal text bars, matching 8bitShell.
 
 Local build, test, portable launch and troubleshooting instructions: [doc/Building.md](doc/Building.md).
@@ -11,13 +11,13 @@ A native desktop text editor with a familiar Notepad++ workflow, Vi-style editin
 
 Click the version seven times in Preferences to reveal Blueberi, Raspberi and the Cyberpunk-inspired Silverhand, V and K themes. Unlocking is saved per profile and keeps the current theme. See [theme unlocking](doc/Updates.md#version-and-bonus-themes).
 
-8bitPad is a GPL-3.0-or-later fork of **Notepad Next v0.15**, with its original notices retained. It is independent of the Notepad++ and Notepad Next projects. Feature coverage and remaining compatibility differences are documented in [doc/FEATURES.md](doc/FEATURES.md).
+8bitCode (formerly 8bitPad) is a GPL-3.0-or-later fork of **Notepad Next v0.15**, with its original notices retained. It is independent of the Notepad++ and Notepad Next projects. Feature coverage and remaining compatibility differences are documented in [doc/FEATURES.md](doc/FEATURES.md).
 
 ## Install and run
 
 **Windows x64:** use the MSI for a per-user installation with a Start menu shortcut. A portable ZIP is also available; extract the complete folder and run `Start-Portable.cmd` to keep settings in its `profile` folder.
 
-**Linux x86_64:** use the normal runtime `.tar.gz` package and its `8bitcode` launcher, or the curl installer for a per-user installation and desktop shortcut. The release workflow targets an Ubuntu 22.04 build baseline; a locally built Fedora 44 package requires a compatible newer system.
+**Linux x86_64:** use the normal runtime `.tar.gz` package and its `8bitCode` launcher, or the curl installer for a per-user installation and desktop shortcut. The release workflow targets an Ubuntu 22.04 build baseline; a locally built Fedora 44 package requires a compatible newer system.
 
 Windows, Linux and macOS curl instructions, installation paths and options are in [doc/INSTALLATION.md](doc/INSTALLATION.md). Releases are configured for `8bitPrograms/8bitPad`; download URLs become usable after the matching release assets are published.
 

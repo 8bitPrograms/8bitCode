@@ -1,4 +1,4 @@
-# Installing 8bitPad 1.0
+# Installing 8bitCode 1.0
 
 The new GitHub repository and published release do not exist yet. Replace ORG/REPOSITORY below after setup. Draft releases are unavailable through the latest-download URL.
 
@@ -18,8 +18,8 @@ Linux and macOS, once the first release is published:
 
 Windows, in PowerShell:
 
-    curl.exe -fsSL https://github.com/ORG/REPOSITORY/releases/latest/download/install.ps1 -o "$env:TEMP\8bitPad-install.ps1"
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\8bitPad-install.ps1"
+    curl.exe -fsSL https://github.com/ORG/REPOSITORY/releases/latest/download/install.ps1 -o "$env:TEMP\8bitCode-install.ps1"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\8bitCode-install.ps1"
 
 The downloadable scripts receive the actual repository during release preparation. From the source checkout, pass --repo / -Repository explicitly. Both scripts also accept BIT8PAD_REPOSITORY.
 
@@ -37,16 +37,16 @@ The installer selects the native OS/CPU from the versioned release index and ver
 
 ## Installed and portable layouts
 
-Windows MSI installs per user under LocalAppData\Programs\8bitPad, with a Start menu shortcut and Windows uninstall entry. EXE wraps the same MSI. The portable ZIP includes Start.cmd for the normal profile and Start-Portable.cmd for a profile beside the app.
+Windows MSI installs per user under LocalAppData\Programs\8bitCode, with a Start menu shortcut and Windows uninstall entry. EXE wraps the same MSI. The portable ZIP includes Start.cmd for the normal profile and Start-Portable.cmd for a profile beside the app.
 
-Linux curl installation keeps version directories below ~/.local/opt/8bitpad, with a launcher in ~/.local/bin and desktop integration in the user data directory. Native DEB, RPM and Arch packages provide the same private runtime under /opt/8bitpad. Use the package manager matching the distribution.
+Linux curl installation keeps version directories below ~/.local/opt/8bitcode, with a launcher in ~/.local/bin and desktop integration in the user data directory. Native DEB, RPM and Arch packages provide the same private runtime under /opt/8bitcode and replace an installed 8bitpad package. The command is `8bitcode`; `8p` and `8bitpad` still work. Use the package manager matching the distribution.
 
 macOS curl installation copies the APP into ~/Applications. The DMG provides the usual APP-to-Applications drag installation. Public packages need the maintainer's Developer ID signing and notarization setup.
 
 Portable directories can be requested directly:
 
-    sh install.sh --repo ORG/REPOSITORY --portable "$HOME/8bitPad-portable"
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Repository ORG/REPOSITORY -Portable -InstallDirectory "$HOME\8bitPad-portable"
+    sh install.sh --repo ORG/REPOSITORY --portable "$HOME/8bitCode-portable"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Repository ORG/REPOSITORY -Portable -InstallDirectory "$HOME\8bitCode-portable"
 
 Linux portable archives include Start-Portable.sh; macOS archives include Start-Portable.command. Portable profiles stay beside the app. Regular upgrades retain existing settings and recovery data. Existing 8bitPad profiles are reused in place.
 

@@ -467,14 +467,18 @@ void FileAssociationsTest::linuxCustomRegistrationAndCleanupStayInXdg()
     const QByteArray aliases = readFile(services.dataHome + "/mime/packages/8bitpad-types.xml");
     QVERIFY(aliases.contains("*.jsonc") && aliases.contains("*.tsx") && aliases.contains("*.ts"));
     const QString mimeapps = services.configHome + "/mimeapps.list";
-    QVERIFY(writeFile(mimeapps, "# keep comment\n[Default Applications]\ntext/plain=8bitcode.desktop;other.desktop;\nimage/png=viewer.desktop;\n[Added Associations]\ntext/markdown=other.desktop;8bitcode.desktop;\n"));
+    QVERIFY(writeFile(mimeapps, "# keep comment\n[Default Applications]\ntext/plain=8bitcode.desktop;other.desktop;\nimage/png=viewer.desktop;\n[Added Associations]\ntext/markdown=other.desktop;8bitcode.desktop;8bitpad.desktop;\n"));
     QVERIFY(writeFile(services.dataHome + "/mime/packages/other-app.xml", "keep"));
+    QVERIFY(writeFile(services.dataHome + "/applications/8bitpad.desktop", "[Desktop Entry]\nX-8bitPad-Managed=true\n"));
+    QVERIFY(writeFile(services.dataHome + "/applications/8bitpad-folder.desktop", "[Desktop Entry]\nName=Not ours\n"));
     QVERIFY(backend.removeOwnedRegistration().ok());
     const QByteArray after = readFile(mimeapps);
     QVERIFY(after.contains("text/plain=other.desktop;"));
     QVERIFY(after.contains("image/png=viewer.desktop;"));
     QVERIFY(after.contains("# keep comment"));
-    QVERIFY(!after.contains("8bitcode.desktop"));
+    QVERIFY(!after.contains("8bitcode.desktop") && !after.contains("8bitpad.desktop"));
+    QVERIFY(!QFileInfo::exists(services.dataHome + "/applications/8bitpad.desktop"));
+    QVERIFY(QFileInfo::exists(services.dataHome + "/applications/8bitpad-folder.desktop"));
     QCOMPARE(readFile(services.dataHome + "/mime/packages/other-app.xml"), QByteArray("keep"));
     QVERIFY(!QFileInfo::exists(services.dataHome + "/applications/8bitcode.desktop"));
 }

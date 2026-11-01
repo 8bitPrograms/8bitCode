@@ -44,6 +44,8 @@ const QString registeredAppKey = QStringLiteral("Software/RegisteredApplications
 const QString capabilitiesValue = QStringLiteral("Software\\8bitPad\\Capabilities");
 const QString desktopId = QStringLiteral("8bitcode.desktop");
 const QString folderDesktopId = QStringLiteral("8bitcode-folder.desktop");
+// Entries 8bitPad wrote before the rename; removal cleans them up too.
+const QStringList legacyDesktopIds{QStringLiteral("8bitpad.desktop"), QStringLiteral("8bitpad-folder.desktop")};
 const QString iconRevisionKey = QStringLiteral("Software/8bitPad/ShellIntegration/IconRevision");
 const QString iconHandlerClass = QString::fromLatin1(FileIconHandlerWindows::ClassIdString);
 const QString iconHandlerComKey = classes + "CLSID/" + iconHandlerClass;
@@ -658,6 +660,11 @@ BatchResult Backend::removeOwnedRegistration()
     } else {
         removeFile(QDir(applicationsPath(services)).filePath(desktopId), result.errors);
         removeFile(QDir(applicationsPath(services)).filePath(folderDesktopId), result.errors);
+        for (const QString &id : legacyDesktopIds) {
+            const QString path = QDir(applicationsPath(services)).filePath(id);
+            QFile legacy(path);
+            if (legacy.open(QIODevice::ReadOnly) && legacy.readAll().contains("\nX-8bitPad-Managed=true\n")) removeFile(path, result.errors);
+        }
         const QDir packages(QDir(services.dataHome).filePath("mime/packages"));
         for (const QFileInfo &entry : packages.entryInfoList({"8bitpad-*.xml"}, QDir::Files)) {
             const QString ext = entry.baseName().mid(QString("8bitpad-").size());
@@ -668,7 +675,7 @@ BatchResult Backend::removeOwnedRegistration()
             if (!QRegularExpression("^[a-z0-9_-]+$").match(desktop).hasMatch()) continue;
             lists << QDir(services.configHome).filePath(desktop + "-mimeapps.list") << QDir(applicationsPath(services)).filePath(desktop + "-mimeapps.list");
         }
-        for (const QString &path : unique(lists)) removeDesktopReferences(path, {desktopId, folderDesktopId}, result.errors);
+        for (const QString &path : unique(lists)) removeDesktopReferences(path, {desktopId, folderDesktopId, legacyDesktopIds[0], legacyDesktopIds[1]}, result.errors);
         removeFile(manifestPath(services), result.errors);
         runTool(services, "update-desktop-database", {applicationsPath(services)}, result.errors);
         if (packages.exists()) runTool(services, "update-mime-database", {QDir(services.dataHome).filePath("mime")}, result.errors);

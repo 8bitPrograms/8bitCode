@@ -20,6 +20,7 @@ if (Test-Path -LiteralPath $output) { throw "Choose a fresh package directory: $
 New-Item -ItemType Directory -Path $output | Out-Null
 Copy-Item -LiteralPath (Join-Path $build '8bitCode.exe') -Destination $output
 Copy-Item -LiteralPath (Join-Path $build '8p.exe') -Destination $output
+Copy-Item -LiteralPath (Join-Path $build '8bitpad.exe') -Destination $output
 Copy-Item -LiteralPath (Join-Path $build '8bitCodeFileIcons.dll') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'src/update/Apply-Update.ps1') -Destination $output
 # Keep the SDK read-only. A private tool directory shares its executable/DLL
@@ -69,7 +70,7 @@ if (!$VcRedistDirectory) {
 foreach ($file in Get-ChildItem -LiteralPath $VcRedistDirectory -File -Filter '*.dll') {
     Copy-Item -LiteralPath $file.FullName -Destination $output
 }
-foreach ($required in @('8bitCodeFileIcons.dll', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
+foreach ($required in @('8p.exe', '8bitpad.exe', '8bitCodeFileIcons.dll', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')) {
     if (!(Test-Path -LiteralPath (Join-Path $output $required))) { throw "Missing runtime file: $required" }
 }
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $output
