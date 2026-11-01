@@ -663,7 +663,9 @@ BatchResult Backend::removeOwnedRegistration()
         for (const QString &id : legacyDesktopIds) {
             const QString path = QDir(applicationsPath(services)).filePath(id);
             QFile legacy(path);
-            if (legacy.open(QIODevice::ReadOnly) && legacy.readAll().contains("\nX-8bitPad-Managed=true\n")) removeFile(path, result.errors);
+            const bool owned = legacy.open(QIODevice::ReadOnly) && legacy.readAll().contains("\nX-8bitPad-Managed=true\n");
+            legacy.close(); // Windows cannot delete an open file.
+            if (owned) removeFile(path, result.errors);
         }
         const QDir packages(QDir(services.dataHome).filePath("mime/packages"));
         for (const QFileInfo &entry : packages.entryInfoList({"8bitpad-*.xml"}, QDir::Files)) {
