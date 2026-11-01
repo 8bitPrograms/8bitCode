@@ -9,6 +9,7 @@
 #include "LuaState.h"
 #include "SciLexer.h"
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -325,7 +326,7 @@ private slots:
         QCOMPARE(readFile(recoveryPath), expectedRecovery);
         QCOMPARE(readFile(path), original);
         QVERIFY(editor->modify());
-        QCOMPARE(editor->getFilePath(), path);
+        QCOMPARE(QDir::fromNativeSeparators(editor->getFilePath()), QDir::fromNativeSeparators(path));
         QCOMPARE(editor->encodingName(), encodingName);
     }
 };
