@@ -38,7 +38,7 @@ function Escape-Wix([string]$Value) {
     return [Security.SecurityElement]::Escape($Value.Replace('$(', '$$('))
 }
 function Is-Excluded([string]$Relative) {
-    return $Relative -match '^(?i:profile)(?:/|$)' -or $Relative -match '^(?i:Start-Portable\.cmd|SHA256SUMS\.txt)$'
+    return $Relative -match '^(?i:profile)(?:/|$)' -or $Relative -match '^(?i:Start-Portable\.cmd|UNINSTALL\.txt|SHA256SUMS\.txt)$'
 }
 function Get-PayloadFiles([string]$Directory, [string]$Base) {
     foreach ($entry in Get-ChildItem -LiteralPath $Directory -Force | Sort-Object Name) {

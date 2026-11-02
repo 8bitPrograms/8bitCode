@@ -5,7 +5,7 @@
 Formerly **8bitPad**. [Rename and compatibility details](doc/MIGRATION-8BITCODE.md).
 Current release workflow: [Windows builds on the maintainer's PC](doc/LOCAL-RELEASES.md).
 GitHub Actions builds are manual-only while other platform builds are paused.
-**Current version: 1.0.1.** Pixel Core branding: cobalt blue pixel tile, stepped corners and charcoal text bars, matching 8bitShell.
+**Current version: 1.0.1.** Pixel Core branding: cobalt blue pixel tile, stepped corners and white code brackets, matching 8bitShell.
 
 Local build, test, portable launch and troubleshooting instructions: [doc/Building.md](doc/Building.md).
 
@@ -21,7 +21,7 @@ Click the version seven times in Preferences to reveal Blueberi, Raspberi and th
 
 ## Install and run
 
-**Windows x64:** use the MSI for a per-user installation with a Start menu shortcut. A portable ZIP is also available; extract the complete folder and run `Start-Portable.cmd` to keep settings in its `profile` folder.
+**Windows x64:** use the MSI or EXE setup for a per-user installation with Start menu launch and uninstall shortcuts. Both installers share the same Windows Installed apps entry. A portable ZIP is also available; extract the complete folder and run `Start-Portable.cmd` to keep settings in its `profile` folder.
 
 **Linux x86_64:** use the normal runtime `.tar.gz` package and its `8bitCode` launcher, or the curl installer for a per-user installation and desktop shortcut. The release workflow targets an Ubuntu 22.04 build baseline; a locally built Fedora 44 package requires a compatible newer system.
 
@@ -86,7 +86,7 @@ bash scripts/build-linux.sh
 cmake --install build-linux --prefix "$HOME/.local"
 ```
 
-For a separate SDK, pass `-DCMAKE_PREFIX_PATH=/path/to/Qt`. The build helper runs CTest; `QT_QPA_PLATFORM=offscreen` allows checks without a desktop. GitHub Actions builds and tests both platforms, packages the MSI and Linux runtime archive, and prepares a draft release for matching version tags. See [doc/RELEASING.md](doc/RELEASING.md). Hosted CI execution and public releases still require the repository to be uploaded.
+For a separate SDK, pass `-DCMAKE_PREFIX_PATH=/path/to/Qt`. The build helper runs CTest; `QT_QPA_PLATFORM=offscreen` allows checks without a desktop. The current workflow builds Windows locally and publishes portable ZIP, MSI and EXE setup; hosted builds remain paused. See [doc/RELEASING.md](doc/RELEASING.md). Hosted CI execution and public releases still require the repository to be uploaded.
 
 ## Source and licensing
 
