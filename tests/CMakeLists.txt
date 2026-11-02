@@ -159,3 +159,14 @@ if(WIN32)
         -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/command-launcher.xml,junitxml")
     set_tests_properties(CommandLauncher PROPERTIES TIMEOUT 30)
 endif()
+
+# HandleFs is not linked into the app yet; the test target compiles it with the test hook.
+if(UNIX)
+    qt_add_executable(HandleFsTest HandleFsTest.cpp ../src/HandleFs.cpp ../src/HandleFs.h)
+    target_include_directories(HandleFsTest PRIVATE ../src)
+    target_compile_definitions(HandleFsTest PRIVATE BIT8PAD_TESTING _FILE_OFFSET_BITS=64)
+    target_link_libraries(HandleFsTest PRIVATE Qt6::Core Qt6::Test)
+    add_test(NAME HandleFs COMMAND HandleFsTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/handle-fs.xml,junitxml")
+    set_tests_properties(HandleFs PROPERTIES TIMEOUT 60)
+endif()
+
