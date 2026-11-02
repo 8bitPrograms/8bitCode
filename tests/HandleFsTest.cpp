@@ -41,6 +41,12 @@ bool writeFile(const QString &path, const QByteArray &bytes)
     return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
 }
 
+QByteArray readFile(const QString &path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
 // Every entry with its type, size, mode and time; links are listed, not followed.
 QStringList snapshot(const QString &root)
 {
@@ -55,6 +61,18 @@ QStringList snapshot(const QString &root)
     return out;
 }
 
+// Writes a temp and publishes it as name; the temp is removed if that fails.
+Status publish(const Dir &dir, const QString &name, const QByteArray &bytes)
+{
+    const QString temp = QLatin1Char('.') + name + QLatin1String(".tmp");
+    File file = createExclusiveAt(dir, temp, 0644);
+    if (!file.isOpen() || !file.writeAll(bytes.constData(), bytes.size()).ok())
+        return {EIO};
+    const Status status = renameNoReplaceAt(dir, file, temp, name);
+    if (!status.ok())
+        discard(dir, file, temp);
+    return status;
+}
 }
 
 class HandleFsTest : public QObject
@@ -65,6 +83,7 @@ class HandleFsTest : public QObject
     int runs = 0;
 
     QString path(const char *name) const { return root + QLatin1Char('/') + QLatin1String(name); }
+    QStringList files() const { return QDir(root).entryList(QDir::Hidden | QDir::Files, QDir::Name); }
 
 private slots:
     void init()
@@ -116,6 +135,7 @@ private slots:
             QCOMPARE(statAt(dir, name), Kind::Link);
             QCOMPARE(openDirAt(dir, name, Create::Yes).kind(), Kind::Link);
             QCOMPARE(openFileAt(dir, name).kind(), Kind::Link);
+            QCOMPARE(unlinkAt(dir, name).code, EINVAL);
         }
         QCOMPARE(openDirAt(dir, QStringLiteral("a.txt"), Create::No).kind(), Kind::File);
         // Swapped for a link after the check: the open refuses it.
@@ -158,6 +178,81 @@ private slots:
         }
     }
 
+    void publishNeverReplaces()
+    {
+        Dir dir = Dir::openRoot(root, Create::No);
+        QCOMPARE(publish(dir, QStringLiteral("a.txt"), "new").code, EEXIST);
+        QCOMPARE(readFile(path("a.txt")), QByteArray("alpha"));
+        QVERIFY(publish(dir, QStringLiteral("b.txt"), "beta").ok());
+        QCOMPARE(readFile(path("b.txt")), QByteArray("beta"));
+        QCOMPARE(files(), QStringList({"a.txt", "b.txt", "filelink"}));
+        QCOMPARE(createExclusiveAt(dir, QStringLiteral("b.txt"), 0600).status().code, EEXIST);
+    }
+
+    void renameFallbacks_data()
+    {
+        QTest::addColumn<int>("step");
+        QTest::addColumn<int>("code");
+        for (int code : {EPERM, ENOSYS, EINVAL, EOPNOTSUPP})
+            QTest::addRow("rename %d", code) << int(Step::RenameNoReplace) << code;
+        for (int code : {EPERM, EMLINK})
+            QTest::addRow("link %d", code) << int(Step::Link) << code;
+    }
+    void renameFallbacks()
+    {
+        QFETCH(int, step);
+        QFETCH(int, code);
+        Dir dir = Dir::openRoot(root, Create::No);
+        if (step == int(Step::Link)) // reached only when the no-replace rename fails too
+            inject(Step::RenameNoReplace, ENOSYS);
+        inject(Step(step), code);
+        QCOMPARE(publish(dir, QStringLiteral("a.txt"), "new").code, EEXIST);
+        QCOMPARE(readFile(path("a.txt")), QByteArray("alpha"));
+        QVERIFY(publish(dir, QStringLiteral("b.txt"), "beta").ok()); // the cached step
+        QCOMPARE(readFile(path("b.txt")), QByteArray("beta"));
+        QCOMPARE(files(), QStringList({"a.txt", "b.txt", "filelink"}));
+        inject(Step(step), EIO); // any other error is returned as it is
+        QCOMPARE(publish(dir, QStringLiteral("c.txt"), "c").code, EIO);
+        QCOMPARE(files(), QStringList({"a.txt", "b.txt", "filelink"}));
+    }
+
+    void tempModeFollowsUmask()
+    {
+        Dir dir = Dir::openRoot(root, Create::No);
+        const mode_t old = umask(077);
+        const File a = createExclusiveAt(dir, QStringLiteral("a.tmp"), 0777);
+        umask(022);
+        const File b = createExclusiveAt(dir, QStringLiteral("b.tmp"), 04755);
+        umask(old);
+        QCOMPARE(a.mode(), 0600);
+        QCOMPARE(b.mode(), 0644);
+    }
+
+    void unlinkAndDiscard()
+    {
+        Dir dir = Dir::openRoot(root, Create::No);
+        QCOMPARE(unlinkAt(dir, QStringLiteral("sub")).code, EINVAL);
+        QCOMPARE(unlinkAt(dir, QStringLiteral("none")).code, ENOENT);
+        QVERIFY(unlinkAt(dir, QStringLiteral("a.txt")).ok() && !QFileInfo::exists(path("a.txt")));
+        File temp = createExclusiveAt(dir, QStringLiteral("t"), 0600);
+        QVERIFY(discard(dir, temp, QStringLiteral("t")).ok() && !temp.isOpen() && !QFileInfo::exists(path("t")));
+        // Not our file any more: left alone.
+        temp = createExclusiveAt(dir, QStringLiteral("t"), 0600);
+        QVERIFY(QFile::remove(path("t")) && writeFile(path("t"), "other"));
+        QCOMPARE(discard(dir, temp, QStringLiteral("t")).code, ENOENT);
+        QCOMPARE(readFile(path("t")), QByteArray("other"));
+    }
+
+    void timesAndSync()
+    {
+        Dir dir = Dir::openRoot(root, Create::No);
+        File file = createExclusiveAt(dir, QStringLiteral("t"), 0600);
+        QVERIFY(file.writeAll("abc", 3).ok() && file.setMTime(-1500000000));
+        QCOMPARE(file.mtimeNs(), -1500000000);
+        QVERIFY(file.setMTime(1234567890123456789) && syncAt(file).ok() && syncDir(dir).ok());
+        QCOMPARE(openFileAt(dir, QStringLiteral("t")).mtimeNs(), 1234567890123456789);
+    }
+
     void otherFileSystemIsReported()
     {
         struct stat top, dev;
@@ -174,6 +269,7 @@ private slots:
                                     QStringLiteral("a") + QChar(0)}) {
             QCOMPARE(openDirAt(dir, name, Create::Yes).status().code, EINVAL);
             QCOMPARE(openFileAt(dir, name).status().code, EINVAL);
+            QCOMPARE(createExclusiveAt(dir, name, 0600).status().code, EINVAL);
         }
     }
 };

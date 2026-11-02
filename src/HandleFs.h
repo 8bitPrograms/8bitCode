@@ -70,19 +70,28 @@ public:
     qint64 size() const;
     qint64 mtimeNs() const;
     int mode() const;
+    bool setMTime(qint64 ns);
     qint64 read(char *data, qint64 max); // 0 at the end, -1 on error
+    Status writeAll(const char *data, qint64 size);
 };
 
 // Link or non-folder → kind(). With Create::No, a folder on another file system reports EXDEV.
 Dir openDirAt(const Dir &dir, const QString &name, Create create);
 File openFileAt(const Dir &dir, const QString &name); // regular files only; never blocks
 Kind statAt(const Dir &dir, const QString &name);
+File createExclusiveAt(const Dir &dir, const QString &name, int mode); // the kernel applies the umask to mode & 0666
+Status renameNoReplaceAt(const Dir &dir, File &file, const QString &from, const QString &to); // EEXIST if to exists
+Status unlinkAt(const Dir &dir, const QString &name); // regular files only
+Status discard(const Dir &dir, File &file, const QString &name); // removes name only if it is still file
+Status syncAt(File &file);
+Status syncDir(Dir &dir);
 // nullopt if the folder cannot be listed completely; never a partial or empty list.
 std::optional<std::vector<Entry>> listAt(const Dir &dir, Status *status = nullptr);
 
 #ifdef BIT8PAD_TESTING
-enum class Step { OpenDir, OpenFile, List, ListEntry };
+enum class Step { OpenDir, OpenFile, List, ListEntry, Create, RenameNoReplace, Link, Rename, Unlink };
 // Runs before the step's system call; a non-zero return fails the step with that errno.
+// Setting it also resets the cached rename step.
 void setTestHook(int (*hook)(Step step, const QString &name));
 #endif
 
