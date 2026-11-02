@@ -2,7 +2,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$AssetDirectory,
-    [string]$NotesRepository = ''
+    [string]$NotesRepository = '',
+    [string]$NotesAssetDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
 function Get-MigrationSha256([string]$Path) {
@@ -34,6 +35,20 @@ foreach ($asset in $manifest.assets) {
         throw "Release asset changed: $file"
     }
 }
+$notesAssetRoot = ''
+if ($NotesAssetDirectory) {
+    $notesAssetRoot = $NotesAssetDirectory
+    if (![IO.Path]::IsPathRooted($notesAssetRoot)) { $notesAssetRoot = Join-Path $NotesRepository $notesAssetRoot }
+    $notesManifest = Get-Content -LiteralPath (Join-Path $notesAssetRoot 'release-manifest.json') -Raw | ConvertFrom-Json
+    if ($notesManifest.application -ne '8bitNotes' -or $notesManifest.repository -ne '8bitPrograms/8bitNotes' -or
+        $notesManifest.sourceCommit -ne ((& git -C $NotesRepository rev-parse HEAD).Trim())) {
+        throw 'Notes release must match its clean checkout.'
+    }
+    foreach ($asset in $notesManifest.assets) {
+        if ([IO.Path]::GetFileName($asset.name) -ne $asset.name) { throw 'Invalid Notes asset name.' }
+        if ((Get-MigrationSha256 (Join-Path $notesAssetRoot $asset.name)) -ne $asset.sha256) { throw 'A Notes asset changed.' }
+    }
+}
 & $gh auth status --hostname github.com
 if ($LASTEXITCODE) { throw 'GitHub authentication/network check failed.' }
 $login = & $gh api user --jq .login
@@ -62,3 +77,6 @@ foreach ($checkout in @($repo, $NotesRepository)) {
     if ($LASTEXITCODE) { throw "Non-force source push failed: $checkout. Reconcile main before retrying." }
 }
 & (Join-Path $PSScriptRoot 'publish-windows.ps1') -AssetDirectory $assetRoot
+if ($notesAssetRoot) {
+    & (Join-Path $NotesRepository 'scripts/publish-windows.ps1') -AssetDirectory $notesAssetRoot
+}

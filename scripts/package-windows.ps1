@@ -75,6 +75,10 @@ foreach ($required in @('8bitPadFileIcons.dll', 'Qt6Core.dll', 'Qt6Core5Compat.d
 }
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'README.md') -Destination $output
+New-Item -ItemType Directory -Path (Join-Path $output 'icon') | Out-Null
+foreach ($extension in @('svg', 'png', 'ico')) {
+    Copy-Item -LiteralPath (Join-Path $repo "icon/8bitpad.$extension") -Destination (Join-Path $output 'icon')
+}
 Copy-Item -LiteralPath (Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'licenses') -Destination (Join-Path $output 'licenses') -Recurse
 Copy-Item -LiteralPath (Join-Path $repo 'doc') -Destination (Join-Path $output 'doc') -Recurse

@@ -23,13 +23,16 @@ Pad-named development snapshot remain historical downloads.
 After the Code release assets have been prepared, run from this checkout:
 
 ```powershell
-.\migrate-to-code.cmd -AssetDirectory dist/releases/v1.0.1-local.20261102.2
+.\migrate-to-code.cmd -AssetDirectory dist/releases/<code-tag>
 ```
 
 This checks both clean local checkouts and release hashes, authenticates GitHub
 CLI, verifies the existing repository ID, renames it in place, updates this
 checkout's remote, pushes both sources without force, and publishes the verified
 Code Windows prerelease. It does not change repository visibility or access.
+
+Pass `-NotesAssetDirectory dist/releases/<notes-tag>` to verify and publish the
+matching Notes package as well. This path is relative to the Notes checkout.
 
 Automated validation covers version branding, both compatibility launchers with
 Unicode/quoted arguments and working directories, existing editor regressions,

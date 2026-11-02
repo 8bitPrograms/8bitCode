@@ -1,5 +1,7 @@
 # 8bitCode
 
+![8bitCode logo](icon/8bitpad.svg)
+
 Formerly **8bitPad**. [Rename and compatibility details](doc/MIGRATION-8BITCODE.md).
 Current release workflow: [Windows builds on the maintainer's PC](doc/LOCAL-RELEASES.md).
 GitHub Actions builds are manual-only while other platform builds are paused.
