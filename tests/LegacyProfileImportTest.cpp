@@ -9,6 +9,9 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
+#ifdef Q_OS_UNIX
+#include <sys/stat.h>
+#endif
 
 namespace {
 bool write(const QString &path, const QByteArray &data)
@@ -99,6 +102,54 @@ private slots:
         QCOMPARE(result.skipped, QStringList{"8bitpad.ini"});
         QCOMPARE(result.copied, 3);
         QCOMPARE(read(current + "/8bitpad.ini"), QByteArray("8bitCode settings"));
+    }
+
+#ifdef Q_OS_UNIX
+    void specialFilesAreSkippedInsteadOfBlocking()
+    {
+        // A FIFO must not be opened: reading it would block the primary
+        // instance forever waiting for a writer.
+        QVERIFY2(::mkfifo(QFile::encodeName(legacy + "/session/report.pipe").constData(), 0666) == 0,
+            qPrintable(legacy + "/session/report.pipe"));
+        const QStringList before = snapshot(legacy);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QVERIFY(result.ran);
+        QCOMPARE(result.copied, 4);
+        QVERIFY(!QFileInfo::exists(current + "/session/report.pipe"));
+        QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        QCOMPARE(snapshot(legacy), before);
+    }
+#endif
+
+    void unfinishedImportIsFinishedByRepairingTimestamps()
+    {
+        // Same size but a different time: an earlier unfinished import had
+        // written the contents, then died before the marker and setFileTime().
+        QVERIFY(write(current + "/session/unsaved-1.txt", "unsaved synthetic data"));
+        QFile previousCopy(current + "/session/unsaved-1.txt");
+        QVERIFY(previousCopy.open(QIODevice::ReadWrite));
+        QVERIFY(previousCopy.setFileTime(QDateTime::fromMSecsSinceEpoch(1000000000000), QFileDevice::FileModificationTime));
+        previousCopy.close();
+        // A different size is not an earlier copy of ours; never touch it.
+        QVERIFY(write(current + "/8bitpad.ini", "changed by the user"));
+        QFile other(current + "/8bitpad.ini");
+        QVERIFY(other.open(QIODevice::ReadWrite));
+        QVERIFY(other.setFileTime(QDateTime::fromMSecsSinceEpoch(1000000000123), QFileDevice::FileModificationTime));
+        other.close();
+        const QDateTime before = QFileInfo(current + "/8bitpad.ini").lastModified();
+
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.copied, 2); // session.ini and updates.ini are still new
+        QCOMPARE(result.skipped, QStringList{"8bitpad.ini"});
+        QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        // The unfinished copy was finished in time only, never rewritten.
+        QCOMPARE(read(current + "/session/unsaved-1.txt"), QByteArray("unsaved synthetic data"));
+        QCOMPARE(QFileInfo(current + "/session/unsaved-1.txt").lastModified(),
+            QFileInfo(legacy + "/session/unsaved-1.txt").lastModified());
+        QCOMPARE(read(current + "/8bitpad.ini"), QByteArray("changed by the user"));
+        QCOMPARE(QFileInfo(current + "/8bitpad.ini").lastModified(), before);
     }
 
     void missingOldFolderDoesNothing()

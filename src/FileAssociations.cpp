@@ -576,7 +576,10 @@ BatchResult Backend::refreshOwnedIcons()
         QStringList legacyExtensions = registeredExtensions();
         for (const auto &group : catalog()) legacyExtensions += group.extensions;
         for (const QString &extension : unique(legacyExtensions)) keys << "8bitPad." + extension;
-        keys << "*/shell/8bitPad" << "Directory/shell/8bitPad" << "Directory/Background/shell/8bitPad";
+        // Old 8bitPad also registered itself as "Open with": its command there
+        // points at the removed exe in exactly the same way.
+        keys << "*/shell/8bitPad" << "Directory/shell/8bitPad" << "Directory/Background/shell/8bitPad"
+            << "Applications/8bitPad.exe";
         for (const QString &key : keys) {
             const QString token = key.contains("Background") ? "%V" : "%1";
             const bool verb = key.contains("/shell/");

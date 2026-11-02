@@ -24,8 +24,14 @@ bool copyFile(const QFileInfo &source, const QString &target, QString &error)
     if (in.error() != QFileDevice::NoError) { error = in.errorString(); out.cancelWriting(); return false; }
     if (!out.commit()) { error = out.errorString(); return false; }
     // Recovery snapshots are compared by time; keep the original one.
+    // A wrong time is a failed import, because the next start could not
+    // recognize an unfinished copy without it.
     QFile copied(target);
-    if (copied.open(QIODevice::ReadWrite)) copied.setFileTime(source.lastModified(), QFileDevice::FileModificationTime);
+    if (!copied.open(QIODevice::ReadWrite)) { error = copied.errorString(); return false; }
+    if (!copied.setFileTime(source.lastModified(), QFileDevice::FileModificationTime)) {
+        error = copied.errorString().isEmpty() ? QStringLiteral("cannot set the file time") : copied.errorString();
+        return false;
+    }
     return true;
 }
 }
@@ -46,14 +52,30 @@ Result run(const QString &legacyDirectory, const QString &currentDirectory)
     const QDir legacy(legacyDirectory);
     if (!legacy.exists() || legacy == current) return result;
     result.ran = true;
-    QDirIterator it(legacy.absolutePath(), QDir::Files | QDir::Hidden | QDir::System | QDir::NoSymLinks,
+    QDirIterator it(legacy.absolutePath(), QDir::Files | QDir::Hidden | QDir::NoSymLinks,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
         const QFileInfo source(it.next());
+        // FIFOs or sockets would hang forever in QFile::open(QIODevice::ReadOnly).
+        if (!source.isFile()) continue;
         const QString relative = legacy.relativeFilePath(source.absoluteFilePath());
         if (relative.endsWith(QStringLiteral(".lock"))) continue; // stale QSettings/QLockFile locks
         const QString target = current.filePath(relative);
-        if (QFileInfo::exists(target)) { result.skipped << relative; continue; }
+        const QFileInfo targetInfo(target);
+        if (targetInfo.exists()) {
+            // Same size but a different time: an earlier unfinished import had
+            // already written the contents, then died before the marker. Finish
+            // it by fixing only the time, never the data.
+            if (targetInfo.size() != source.size() || targetInfo.lastModified() == source.lastModified()) {
+                result.skipped << relative;
+                continue;
+            }
+            QFile copied(target);
+            if (!copied.open(QIODevice::ReadWrite)
+                || !copied.setFileTime(source.lastModified(), QFileDevice::FileModificationTime))
+                result.errors << relative + QStringLiteral(": cannot restore the original file time");
+            continue;
+        }
         QString error;
         if (copyFile(source, target, error)) ++result.copied;
         else result.errors << relative + QStringLiteral(": ") + error;
