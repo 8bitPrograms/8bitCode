@@ -47,6 +47,8 @@ const QString folderDesktopId = QStringLiteral("8bitcode-folder.desktop");
 // Entries 8bitPad wrote before the rename; removal cleans them up too.
 const QStringList legacyDesktopIds{QStringLiteral("8bitpad.desktop"), QStringLiteral("8bitpad-folder.desktop")};
 const QString iconRevisionKey = QStringLiteral("Software/8bitPad/ShellIntegration/IconRevision");
+// Set once the old 8bitPad entries were looked at, so later starts skip that scan.
+const QString legacyAdoptedKey = QStringLiteral("Software/8bitPad/ShellIntegration/LegacyEntriesChecked");
 const QString iconHandlerClass = QString::fromLatin1(FileIconHandlerWindows::ClassIdString);
 const QString iconHandlerComKey = classes + "CLSID/" + iconHandlerClass;
 const QString applicationIconHandlerKey = classes + "Applications/8bitCode.exe/shellex/IconHandler/.";
@@ -564,6 +566,41 @@ BatchResult Backend::refreshOwnedIcons()
         return result;
     }
 
+    bool changed = false;
+    // After the MSI upgrade from 8bitPad, its install folder is gone and the
+    // registrations it wrote point at a missing exe. Adopt exactly those entries.
+    static const QRegularExpression installed(QStringLiteral("^(.*/Programs/)8bitCode(/(bin/)?)8bitCode\\.exe$"),
+        QRegularExpression::CaseInsensitiveOption);
+    const auto match = installed.match(QDir::fromNativeSeparators(services.executable));
+    const QString legacyExe = match.hasMatch() ? match.captured(1) + "8bitPad" + match.captured(2) + "8bitPad.exe" : QString();
+    // One registry read on normal starts; the scan below reads hundreds of keys.
+    // While the old exe still exists, its entries are not orphaned yet: check again later.
+    const QString checked = QDir::fromNativeSeparators(services.executable);
+    if (!legacyExe.isEmpty() && registry->value(legacyAdoptedKey).toString().compare(checked, Qt::CaseInsensitive) != 0
+        && !QFileInfo::exists(legacyExe)) {
+        QStringList keys;
+        QStringList legacyExtensions = registeredExtensions();
+        for (const auto &group : catalog()) legacyExtensions += group.extensions;
+        for (const QString &extension : unique(legacyExtensions)) keys << "8bitPad." + extension;
+        // Old 8bitPad also registered itself as "Open with": its command there
+        // points at the removed exe in exactly the same way.
+        keys << "*/shell/8bitPad" << "Directory/shell/8bitPad" << "Directory/Background/shell/8bitPad"
+            << "Applications/8bitPad.exe";
+        for (const QString &key : keys) {
+            const QString token = key.contains("Background") ? "%V" : "%1";
+            const bool verb = key.contains("/shell/");
+            const QString target = classes + key + (verb ? "/command/." : "/shell/open/command/.");
+            if (QDir::fromNativeSeparators(registry->value(target).toString().trimmed())
+                    .compare(QDir::fromNativeSeparators(windowsOpenCommand(legacyExe, token)), Qt::CaseInsensitive) != 0) continue;
+            registry->setValue(target, windowsOpenCommand(services.executable, token));
+            if (verb) registry->setValue(classes + key + "/Icon", '"' + QDir::toNativeSeparators(services.executable) + "\",0");
+            changed = true;
+        }
+        // Written after the scan, so a crash during it scans again. Not a change
+        // of associations by itself: Explorer needs no notice for it.
+        registry->setValue(legacyAdoptedKey, checked);
+    }
+
     // A portable or isolated copy must never redirect another copy's entries.
     // Only the exact, existing open command establishes ownership here.
     const QString command = QDir::fromNativeSeparators(windowsOpenCommand(services.executable, "%1"));
@@ -571,7 +608,6 @@ BatchResult Backend::refreshOwnedIcons()
         return QDir::fromNativeSeparators(registry->value(classes + handler + "/shell/open/command/.")
             .toString().trimmed()).compare(command, Qt::CaseInsensitive) == 0;
     };
-    bool changed = false;
     bool hasOwnedHandler = false;
     const auto update = [&](const QString &key, const QString &value) {
         if (registry->value(key).toString() != value) {
