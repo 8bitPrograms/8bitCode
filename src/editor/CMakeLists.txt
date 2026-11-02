@@ -30,6 +30,7 @@ qt_add_library(EightBitEditor STATIC
     UndoAction.h UndoAction.cpp
 )
 add_library(EightBit::Editor ALIAS EightBitEditor)
+target_compile_options(EightBitEditor PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)
 set_target_properties(EightBitEditor PROPERTIES OUTPUT_NAME 8bitEditor)
 
 target_include_directories(EightBitEditor PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
