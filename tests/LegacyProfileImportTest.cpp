@@ -33,6 +33,11 @@ QStringList snapshot(const QString &root)
     QDirIterator it(root, QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         const QFileInfo info(it.next());
+        // A link is recorded as itself; its target is not part of this folder.
+        if (info.isSymLink()) {
+            entries << QDir(root).relativeFilePath(info.filePath()) + " -> " + info.symLinkTarget();
+            continue;
+        }
         entries << QDir(root).relativeFilePath(info.filePath()) + ' ' + QString::number(info.size()) + ' '
             + QString::number(info.lastModified().toMSecsSinceEpoch())
             + ' ' + QCryptographicHash::hash(info.isFile() ? read(info.filePath()) : QByteArray(), QCryptographicHash::Sha256).toHex();
