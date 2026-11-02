@@ -12,6 +12,7 @@
 #include <QtTest>
 #ifdef Q_OS_UNIX
 #include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 namespace {
@@ -26,6 +27,9 @@ QByteArray read(const QString &path)
     QFile f(path);
     return f.open(QIODevice::ReadOnly) ? f.readAll() : QByteArray("<missing>");
 }
+// A start long enough after a failed run that the import tries again.
+QDateTime aDayLater() { return QDateTime::currentDateTimeUtc().addSecs(25 * 3600); }
+
 // Relative path, size, time and content hash of every entry, to prove a folder is unchanged.
 QStringList snapshot(const QString &root)
 {
@@ -225,7 +229,7 @@ private slots:
         // Even with every copy possible, the marker is not written through a link.
         QVERIFY(QFile::remove(current + "/session"));
         QVERIFY(QFile::remove(current + "/updates.ini"));
-        const auto again = LegacyProfileImport::run(legacy, current);
+        const auto again = LegacyProfileImport::run(legacy, current, aDayLater());
         QCOMPARE(again.errors.size(), 1);
         QVERIFY(again.errors.first().startsWith(LegacyProfileImport::MarkerName));
         QCOMPARE(snapshot(temp.filePath("outside")), QStringList());
@@ -295,35 +299,77 @@ private slots:
     }
 #endif
 
-    void unfinishedImportIsFinishedByRepairingTimestamps()
+    void existingFilesKeepTheirTime()
     {
-        // Same size but a different time: an earlier unfinished import had
-        // written the contents, then died before the marker and setFileTime().
+        // Same size as the old file but another time: this is 8bitCode's own
+        // file (or a finished copy), so neither its data nor its time may change.
         QVERIFY(write(current + "/session/unsaved-1.txt", "unsaved synthetic data"));
-        QFile previousCopy(current + "/session/unsaved-1.txt");
-        QVERIFY(previousCopy.open(QIODevice::ReadWrite));
-        QVERIFY(previousCopy.setFileTime(QDateTime::fromMSecsSinceEpoch(1000000000000), QFileDevice::FileModificationTime));
-        previousCopy.close();
-        // A different size is not an earlier copy of ours; never touch it.
-        QVERIFY(write(current + "/8bitpad.ini", "changed by the user"));
-        QFile other(current + "/8bitpad.ini");
-        QVERIFY(other.open(QIODevice::ReadWrite));
-        QVERIFY(other.setFileTime(QDateTime::fromMSecsSinceEpoch(1000000000123), QFileDevice::FileModificationTime));
-        other.close();
-        const QDateTime before = QFileInfo(current + "/8bitpad.ini").lastModified();
-
+        QFile own(current + "/session/unsaved-1.txt");
+        QVERIFY(own.open(QIODevice::ReadWrite));
+        QVERIFY(own.setFileTime(QDateTime::fromMSecsSinceEpoch(1000000000000), QFileDevice::FileModificationTime));
+        own.close();
         const auto result = LegacyProfileImport::run(legacy, current);
         QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
-        QCOMPARE(result.copied, 2); // session.ini and updates.ini are still new
-        QCOMPARE(result.skipped, QStringList{"8bitpad.ini"});
-        QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
-        // The unfinished copy was finished in time only, never rewritten.
+        QCOMPARE(result.copied, 3);
+        QCOMPARE(result.skipped, QStringList{"session/unsaved-1.txt"});
         QCOMPARE(read(current + "/session/unsaved-1.txt"), QByteArray("unsaved synthetic data"));
-        QCOMPARE(QFileInfo(current + "/session/unsaved-1.txt").lastModified(),
-            QFileInfo(legacy + "/session/unsaved-1.txt").lastModified());
-        QCOMPARE(read(current + "/8bitpad.ini"), QByteArray("changed by the user"));
-        QCOMPARE(QFileInfo(current + "/8bitpad.ini").lastModified(), before);
+        QCOMPARE(QFileInfo(current + "/session/unsaved-1.txt").lastModified(), QDateTime::fromMSecsSinceEpoch(1000000000000));
+        // Every copy has the old file's time, set before the copy was put in place.
+        for (const QString &name : {"8bitpad.ini", "session/session.ini", "updates.ini"})
+            QCOMPARE(QFileInfo(current + '/' + name).lastModified(), QFileInfo(legacy + '/' + name).lastModified());
     }
+
+#ifdef Q_OS_UNIX
+    void hardLinkInTheNewFolderIsLeftAlone()
+    {
+        // A hard link shares the old file's data and time; touching it would change the old folder.
+        QVERIFY(QDir(current).mkpath("."));
+        QCOMPARE(::link(QFile::encodeName(legacy + "/updates.ini").constData(), QFile::encodeName(current + "/updates.ini").constData()), 0);
+        const QStringList before = snapshot(legacy);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.skipped, QStringList{"updates.ini"});
+        QCOMPARE(snapshot(legacy), before);
+    }
+
+    void unreadableFolderIsAnError()
+    {
+        if (::geteuid() == 0) QSKIP("root can read any folder");
+        QVERIFY(::chmod(QFile::encodeName(legacy + "/session").constData(), 0) == 0);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY(::chmod(QFile::encodeName(legacy + "/session").constData(), 0755) == 0);
+        QVERIFY(!QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        QCOMPARE(result.errors, QStringList{"session: cannot read the folder"});
+        QCOMPARE(result.copied, 2);
+    }
+
+    void entryThatCannotBeCheckedIsAnError()
+    {
+        // A folder that can be listed but not entered: its entries cannot be checked.
+        if (::geteuid() == 0) QSKIP("root can enter any folder");
+        QVERIFY(write(legacy + "/vault/inner/note.txt", "synthetic"));
+        QVERIFY(::chmod(QFile::encodeName(legacy + "/vault").constData(), 0444) == 0);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY(::chmod(QFile::encodeName(legacy + "/vault").constData(), 0755) == 0);
+        QVERIFY(!QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        QVERIFY2(!result.errors.isEmpty(), "an entry that cannot be checked was ignored");
+        QVERIFY(result.errors.first().startsWith("vault"));
+    }
+#endif
+
+#ifdef Q_OS_WIN
+    void longPathsAreCopied()
+    {
+        // Deeper than the 260 characters plain Windows calls accept.
+        QString deep = legacy;
+        while (deep.size() < 320) deep += "/a-rather-long-folder-name";
+        QVERIFY(write(deep + "/note.txt", "synthetic"));
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.copied, 5);
+        QVERIFY(QFileInfo::exists(current + deep.mid(legacy.size()) + "/note.txt"));
+    }
+#endif
 
     void missingOldFolderDoesNothing()
     {
@@ -334,7 +380,7 @@ private slots:
         QVERIFY(!LegacyProfileImport::run(QString(), current).ran);
     }
 
-    void failureLeavesNoMarkerAndRetries()
+    void failureWaitsADayThenRetries()
     {
         // A file where the session folder must go makes that copy fail on every platform.
         QVERIFY(write(current + "/session", "blocks the folder"));
@@ -342,15 +388,27 @@ private slots:
         const auto failed = LegacyProfileImport::run(legacy, current);
         QCOMPARE(failed.errors.size(), 2);
         QVERIFY(!QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::FailedName));
         QCOMPARE(read(current + "/8bitpad.ini"), read(legacy + "/8bitpad.ini"));
         QCOMPARE(snapshot(legacy), before);
 
+        // The next starts the same day do not walk the folders again.
+        const QStringList afterFailure = snapshot(current);
+        for (int start = 0; start < 3; ++start) {
+            const auto again = LegacyProfileImport::run(legacy, current);
+            QVERIFY(again.postponed);
+            QVERIFY(!again.ran);
+            QVERIFY(again.errors.isEmpty());
+        }
+        QCOMPARE(snapshot(current), afterFailure);
+
         QVERIFY(QFile::remove(current + "/session"));
-        const auto retried = LegacyProfileImport::run(legacy, current);
-        QVERIFY(retried.errors.isEmpty());
+        const auto retried = LegacyProfileImport::run(legacy, current, aDayLater());
+        QVERIFY2(retried.errors.isEmpty(), qPrintable(retried.errors.join('\n')));
         QCOMPARE(retried.copied, 2);
         QCOMPARE(retried.skipped.size(), 2);
         QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
+        QVERIFY(!QFileInfo::exists(current + '/' + LegacyProfileImport::FailedName));
     }
 };
 

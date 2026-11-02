@@ -98,15 +98,18 @@ bool NotepadNextApplication::init()
     setWindowIcon(QIcon(QStringLiteral(":/icons/8bitcode.svg")));
 #endif
 
-    // --profile, BIT8PAD_PROFILE and portable copies keep their folder; nothing to import there.
+    // An explicit profile (BIT8PAD_PROFILE; main() turns --profile into it) keeps its
+    // folder: nothing to import there. Other folders not ending in 8bitCode/8bitCode
+    // get no legacy folder from legacyDirectoryFor(), so run() returns at once.
     if (qEnvironmentVariableIsEmpty("BIT8PAD_PROFILE")) {
         const QString profile = ApplicationSettings::profileDirectory();
         const auto imported = LegacyProfileImport::run(LegacyProfileImport::legacyDirectoryFor(profile), profile);
+        if (imported.postponed) qInfo("8bitPad profile import failed less than a day ago; trying again later");
         if (imported.ran)
             qInfo("8bitPad profile import: %d copied, %d already present", imported.copied, int(imported.skipped.size()));
         for (const QString &name : imported.skipped) qInfo("8bitPad profile import kept existing %s", qUtf8Printable(name));
         for (const QString &name : imported.links) qInfo("8bitPad profile import did not follow link %s", qUtf8Printable(name));
-        for (const QString &error : imported.errors) qWarning("8bitPad profile import will retry: %s", qUtf8Printable(error));
+        for (const QString &error : imported.errors) qWarning("8bitPad profile import will retry in a day: %s", qUtf8Printable(error));
     }
     settings = new ApplicationSettings(this);
     if (parser.isSet("smoke-test")) settings->setRestorePreviousSession(false);
