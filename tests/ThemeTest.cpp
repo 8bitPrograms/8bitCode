@@ -76,7 +76,7 @@ QJsonArray runThemeChecks(NotepadNextApplication *app, MainWindow *window)
         {
             ApplicationSettings isolated;
             {
-                ThemeManager fresh(&isolated, app->getLuaState(), app->getEditorManager());
+                ThemeManager fresh(&isolated, app->getLuaState());
                 check("theme-fresh-profile-is-classic-white", fresh.currentThemeId() == "classic-light" &&
                       !fresh.currentTheme().isDark && fresh.currentTheme().background == QColor(Qt::white));
                 check("theme-bonus-locked-by-default", !fresh.bonusThemesUnlocked() && fresh.availableThemes().size() == ThemeManager::catalog().size() - 5);
@@ -93,7 +93,7 @@ QJsonArray runThemeChecks(NotepadNextApplication *app, MainWindow *window)
             }
             isolated.setValue("appearance/theme", "ayu-dark");
             {
-                ThemeManager saved(&isolated, app->getLuaState(), app->getEditorManager());
+                ThemeManager saved(&isolated, app->getLuaState());
                 check("theme-explicit-saved-choice-preserved", saved.currentThemeId() == "ayu-dark");
                 check("theme-bonus-unlock-persists", saved.bonusThemesUnlocked());
             }
@@ -101,7 +101,7 @@ QJsonArray runThemeChecks(NotepadNextApplication *app, MainWindow *window)
             for (const auto &bonus : ThemeManager::catalog()) {
                 if (!ThemeManager::isBonusTheme(bonus.id)) continue;
                 isolated.setValue("appearance/theme", bonus.id);
-                ThemeManager migrated(&isolated, app->getLuaState(), app->getEditorManager());
+                ThemeManager migrated(&isolated, app->getLuaState());
                 bool hidden = true;
                 for (const auto &available : migrated.availableThemes())
                     hidden &= !ThemeManager::isBonusTheme(available.id);
@@ -110,7 +110,7 @@ QJsonArray runThemeChecks(NotepadNextApplication *app, MainWindow *window)
             }
             isolated.setValue("appearance/theme", "missing-theme");
             {
-                ThemeManager fallback(&isolated, app->getLuaState(), app->getEditorManager());
+                ThemeManager fallback(&isolated, app->getLuaState());
                 check("theme-invalid-saved-choice-falls-back-white", fallback.currentThemeId() == "classic-light");
             }
         }

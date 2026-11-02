@@ -3,8 +3,6 @@ qt_add_executable(NotepadNext
 	MACOSX_BUNDLE
     update/PadUpdates.h update/PadUpdates.cpp
 	ActionUtils.h
-    ThemeManager.h ThemeManager.cpp
-    Readability.h Readability.cpp
     LineDiff.h LineDiff.cpp
     NoteFormat.h NoteFormat.cpp
     GitStatus.h GitStatus.cpp
@@ -13,7 +11,6 @@ qt_add_executable(NotepadNext
     ShellIntegration.h ShellIntegration.cpp
     FileAssociations.h FileAssociations.cpp
     FileAssociationsDialog.h FileAssociationsDialog.cpp
-    VimMode.h VimMode.cpp
     BitPadFeatures.h BitPadFeatures.cpp
     WorkspaceFeatures.h WorkspaceFeatures.cpp
     UiIcons.h UiIcons.cpp
@@ -22,7 +19,6 @@ qt_add_executable(NotepadNext
     TerminalPreferences.h TerminalPreferences.cpp
     LanguageMenu.h LanguageMenu.cpp
     DevOpsProfiles.h DevOpsProfiles.cpp
-    MarkdownRenderer.h MarkdownRenderer.cpp
     MarkdownPreview.h MarkdownPreview.cpp
     ExplorerFileOperations.h ExplorerFileOperations.cpp
     ExplorerFileTypeIcon.h ExplorerFileTypeIcon.cpp
