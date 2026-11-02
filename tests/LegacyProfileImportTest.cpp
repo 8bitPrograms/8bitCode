@@ -255,6 +255,32 @@ private slots:
         QCOMPARE(snapshot(temp.filePath("outside")), before);
     }
 
+    void junctionedFoldersInsideEachOtherAreRefused()
+    {
+        const auto junction = [](const QString &link, const QString &target) {
+            return QProcess::execute("cmd", {"/c", "mklink", "/J", QDir::toNativeSeparators(link), QDir::toNativeSeparators(target)}) == 0;
+        };
+        // The old profile is a junction to the folder holding the new one.
+        QVERIFY(write(current + "/mine.txt", "already in 8bitCode"));
+        QVERIFY(QDir(legacy).removeRecursively());
+        QVERIFY(junction(legacy, temp.filePath("data/8bitCode")));
+        auto result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(QDir(current).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), QStringList{"mine.txt"});
+        QVERIFY(!result.ran);
+        QCOMPARE(result.errors.size(), 1);
+
+        // The new profile is a junction into the old one.
+        QVERIFY(QDir().rmdir(legacy));
+        QVERIFY(write(legacy + "/session/session.ini", "[Session]\nCount=1\n"));
+        QVERIFY(QDir(current).removeRecursively());
+        QVERIFY(junction(current, legacy + "/session"));
+        result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(QDir(legacy + "/session").entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), QStringList{"session.ini"});
+        QVERIFY(!result.ran);
+        QCOMPARE(result.errors.size(), 1);
+        QVERIFY(QDir().rmdir(current));
+    }
+
     void junctionInTheNewFolderIsNotWrittenThrough()
     {
         QVERIFY(QDir(temp.filePath("outside")).mkpath("."));

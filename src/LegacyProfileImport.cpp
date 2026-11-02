@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 
+#include <iterator>
 #include <set>
 #include <utility>
 
@@ -34,6 +35,27 @@ bool isLink(const QFileInfo &info)
 #endif
 }
 
+// Where an existing path really is. Qt's canonical path does not resolve
+// Windows junctions, so ask the file system there.
+QString canonical(const QString &path)
+{
+#ifdef Q_OS_WIN
+    const HANDLE handle = CreateFileW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(path).utf16()), 0,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) return {};
+    wchar_t buffer[32768];
+    const DWORD length = GetFinalPathNameByHandleW(handle, buffer, DWORD(std::size(buffer)), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    CloseHandle(handle);
+    if (length == 0 || length >= std::size(buffer)) return {};
+    QString result = QString::fromWCharArray(buffer, int(length));
+    if (result.startsWith(QStringLiteral("\\\\?\\UNC\\"))) result = QStringLiteral("\\\\") + result.mid(8);
+    else if (result.startsWith(QStringLiteral("\\\\?\\"))) result = result.mid(4);
+    return QDir::cleanPath(QDir::fromNativeSeparators(result));
+#else
+    return QFileInfo(path).canonicalFilePath();
+#endif
+}
+
 // The path with all links resolved. For a path that does not exist yet, its
 // nearest existing ancestor is resolved and the rest appended. Empty if that
 // ancestor cannot be resolved (for example a link to nowhere).
@@ -47,9 +69,9 @@ QString resolved(const QString &path)
         rest.prepend(info.fileName());
         existing = parent;
     }
-    const QString canonical = QFileInfo(existing).canonicalFilePath();
-    if (canonical.isEmpty() || rest.isEmpty()) return canonical;
-    return QDir::cleanPath(canonical + '/' + rest.join('/'));
+    const QString real = canonical(existing);
+    if (real.isEmpty() || rest.isEmpty()) return real;
+    return QDir::cleanPath(real + '/' + rest.join('/'));
 }
 
 // Both paths resolved. Equal counts as inside.
@@ -63,6 +85,19 @@ constexpr Qt::CaseSensitivity fileNameCase = Qt::CaseInsensitive;
 #else
 constexpr Qt::CaseSensitivity fileNameCase = Qt::CaseSensitive;
 #endif
+
+// True if any part of root/relative below root is a link, even one to nowhere.
+bool throughLink(const QString &root, const QString &relative)
+{
+    QString path = root;
+    for (const QString &part : relative.split('/')) {
+        path += '/' + part;
+        const QFileInfo info(path);
+        if (isLink(info)) return true;
+        if (!info.exists()) return false;
+    }
+    return false;
+}
 
 #ifndef Q_OS_WIN
 // Identity of a directory, to notice the same folder reached a second way
@@ -81,7 +116,7 @@ bool copyFile(const QFileInfo &source, const QString &target, const QString &roo
     if (!in.open(QIODevice::ReadOnly)) { error = in.errorString(); return false; }
     if (!QDir().mkpath(QFileInfo(target).absolutePath())) { error = QStringLiteral("cannot create folder"); return false; }
     // Checked again now that the folder exists: it must still be a real folder in the new profile.
-    if (!inside(root, QFileInfo(QFileInfo(target).absolutePath()).canonicalFilePath(), fileNameCase)) {
+    if (!inside(root, canonical(QFileInfo(target).absolutePath()), fileNameCase)) {
         error = QStringLiteral("leads outside the 8bitCode folder; not copied");
         return false;
     }
@@ -165,7 +200,7 @@ Result run(const QString &legacyDirectory, const QString &currentDirectory)
             // A link already in the new folder could send the copy anywhere,
             // including into the old folder.
             const QFileInfo targetInfo(target);
-            if (isLink(targetInfo) || !inside(currentRoot, resolved(target), fileNameCase)) {
+            if (throughLink(currentRoot, relative) || !inside(currentRoot, resolved(target), fileNameCase)) {
                 result.errors << relative + QStringLiteral(": leads outside the 8bitCode folder; not copied");
                 continue;
             }
