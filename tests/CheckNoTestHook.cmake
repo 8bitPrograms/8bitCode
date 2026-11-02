@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Fails if BINARY contains the HandleFs test hook; HOOKED, when given, must contain it (proves the scan works).
+function(has_hook file out)
+    file(STRINGS "${file}" hits REGEX "BIT8PAD_TEST_HOOK|setTestHook" LIMIT_COUNT 1)
+    set(${out} "${hits}" PARENT_SCOPE)
+endfunction()
+has_hook("${BINARY}" found)
+if(found)
+    message(FATAL_ERROR "${BINARY} contains the HandleFs test hook")
+endif()
+if(HOOKED)
+    has_hook("${HOOKED}" found)
+    if(NOT found)
+        message(FATAL_ERROR "the scan did not find the hook in ${HOOKED}")
+    endif()
+endif()

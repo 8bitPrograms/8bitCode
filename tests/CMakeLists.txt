@@ -168,5 +168,9 @@ if(UNIX)
     target_link_libraries(HandleFsTest PRIVATE Qt6::Core Qt6::Test)
     add_test(NAME HandleFs COMMAND HandleFsTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/handle-fs.xml,junitxml")
     set_tests_properties(HandleFs PROPERTIES TIMEOUT 60)
+    set(hooked_binary "-DHOOKED=$<TARGET_FILE:HandleFsTest>")
 endif()
 
+# The app must never contain the HandleFs test hook.
+add_test(NAME AppHasNoTestHook COMMAND ${CMAKE_COMMAND} -DBINARY=$<TARGET_FILE:NotepadNext>
+    ${hooked_binary} -P "${CMAKE_CURRENT_SOURCE_DIR}/CheckNoTestHook.cmake")
