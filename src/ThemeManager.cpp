@@ -2,8 +2,7 @@
 // Copyright 2026 8bitPad contributors
 #include "ThemeManager.h"
 
-#include "ApplicationSettings.h"
-#include "EditorManager.h"
+#include <QSettings>
 #include "LuaState.h"
 #include "Readability.h"
 #include "ScintillaNext.h"
@@ -137,8 +136,7 @@ const QList<EditorTheme> &ThemeManager::catalog()
     return themes;
 }
 
-ThemeManager::ThemeManager(ApplicationSettings *settings, LuaState *lua,
-                           EditorManager *editors, QObject *parent)
+ThemeManager::ThemeManager(QSettings *settings, LuaState *lua, QObject *parent)
     : QObject(parent), mSettings(settings), mLua(lua)
 {
     // Fusion consistently observes the application palette on Windows and Linux.
@@ -146,7 +144,6 @@ ThemeManager::ThemeManager(ApplicationSettings *settings, LuaState *lua,
     if (QStyle *fusion = QStyleFactory::create(QStringLiteral("Fusion")))
         QApplication::setStyle(fusion);
 
-    connect(editors, &EditorManager::editorCreated, this, &ThemeManager::watchEditor);
     QString requested = settings->value(QLatin1String(settingKey),
                                        QLatin1String(defaultTheme)).toString();
     if (!setTheme(requested))
@@ -422,7 +419,7 @@ QColor ThemeManager::syntaxColor(const QString &styleName) const
     return liftContrast(color, t.background, 4.5);
 }
 
-void ThemeManager::applyLanguageStyles(ScintillaNext *editor, const QString &language, int depth) const
+void ThemeManager::applyLanguageStyles(ScintillaNext *editor, const QString &language, int depth, int styleBase) const
 {
     if (!mLua || !mLua->L || language.isEmpty() || depth > 8)
         return;
@@ -451,9 +448,9 @@ void ThemeManager::applyLanguageStyles(ScintillaNext *editor, const QString &lan
                 lua_getfield(state, -1, "id");
                 const lua_Integer rawId = lua_tointeger(state, -1);
                 const bool validId = lua_isinteger(state, -1) && rawId >= 0 && rawId <= STYLE_MAX;
-                const int id = validId ? static_cast<int>(rawId) : 0;
+                const int id = validId ? static_cast<int>(rawId) + styleBase : 0;
                 lua_pop(state, 1);
-                if (validId) {
+                if (validId && id <= STYLE_MAX) {
                     editor->styleSetFore(id, sciColor(syntaxColor(styleName)));
                     lua_getfield(state, -1, "fontStyle");
                     const int fontStyle = static_cast<int>(lua_tointeger(state, -1));
@@ -480,7 +477,7 @@ void ThemeManager::applyLanguageStyles(ScintillaNext *editor, const QString &lan
     }
     lua_settop(state, originalTop);
     for (const QString &child : embedded)
-        applyLanguageStyles(editor, child, depth + 1);
+        applyLanguageStyles(editor, child, depth + 1, styleBase);
 }
 
 void ThemeManager::applyEditor(ScintillaNext *editor) const
@@ -553,4 +550,19 @@ void ThemeManager::applyEditor(ScintillaNext *editor) const
     editor->setUpdatesEnabled(!explicitlyDisabled);
     if (editor->updatesEnabled())
         editor->viewport()->update();
+    emit editorThemeApplied(editor);
+}
+
+void ThemeManager::setLanguageProfiles(LuaState *lua)
+{
+    if (mLua == lua) return;
+    mLua = lua;
+    for (const auto &editor : std::as_const(mEditors))
+        if (editor) applyEditor(editor.data());
+}
+
+void ThemeManager::applyEmbeddedLanguage(ScintillaNext *editor, const QString &language, int styleBase) const
+{
+    if (editor && styleBase >= 0 && styleBase <= STYLE_MAX)
+        applyLanguageStyles(editor, language, 0, styleBase);
 }

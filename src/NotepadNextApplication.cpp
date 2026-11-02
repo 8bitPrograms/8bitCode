@@ -168,7 +168,8 @@ bool NotepadNextApplication::init()
     luaState->executeFile(":/scripts/init.lua");
     LuaExtension::Instance().Initialise(luaState->L, Q_NULLPTR);
 
-    themeManager = new ThemeManager(settings, luaState, editorManager, this);
+    themeManager = new ThemeManager(settings, luaState, this);
+    connect(editorManager, &EditorManager::editorCreated, themeManager, &ThemeManager::watchEditor);
 
     createNewWindow();
     connect(editorManager, &EditorManager::editorCreated, window, &MainWindow::addEditor);

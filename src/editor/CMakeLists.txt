@@ -11,6 +11,10 @@ foreach(dependency lua scintilla lexilla uchardet)
 endforeach()
 
 qt_add_library(EightBitEditor STATIC
+    ../VimMode.h ../VimMode.cpp
+    ../ThemeManager.h ../ThemeManager.cpp
+    ../Readability.h ../Readability.cpp
+    ../MarkdownRenderer.h ../MarkdownRenderer.cpp
     ByteArrayUtils.h
     Finder.h Finder.cpp
     IFaceTable.h IFaceTable.cpp
@@ -28,7 +32,7 @@ qt_add_library(EightBitEditor STATIC
 add_library(EightBit::Editor ALIAS EightBitEditor)
 set_target_properties(EightBitEditor PROPERTIES OUTPUT_NAME 8bitEditor)
 
-target_include_directories(EightBitEditor PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(EightBitEditor PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(EightBitEditor
     PUBLIC
         Qt6::Core
@@ -41,25 +45,15 @@ target_link_libraries(EightBitEditor
         uchardet
 )
 
-# Some objects must reach every consumer even though nothing references them
-# from the consumer's own code. Unreferenced objects in a static library are
-# dropped at link time, which would lose the static initialisers that register
-# the Lua profiles and themes as Qt resources. Scintilla calls back into
-# CreateRegexSearch(), so the regex hook must not sit in an archive that the
-# linker scans before libscintilla. An object library linked through the
-# interface goes straight into each consumer on every platform, without
-# Q_INIT_RESOURCE calls or link-order tricks.
-#
-# The flip side: these objects are copied into every target that links
-# EightBit::Editor. Link it only from final binaries (executables, tests),
-# PRIVATE and once per binary, never through another static library, or the
-# resource initialisers and CreateRegexSearch() would be defined twice.
-add_library(EightBitEditorObjects OBJECT
-    QRegexSearch.h QRegexSearch.cpp
-    scripts.qrc
-    themes/themes.qrc
-)
-set_target_properties(EightBitEditorObjects PROPERTIES AUTORCC ON AUTOMOC OFF AUTOUIC OFF)
+# The regex callback must reach the final binary before libscintilla. Qt
+# resource collections are interface sources, compiled by AUTORCC in each
+# final consumer. Forwarding AUTORCC-generated objects via TARGET_OBJECTS
+# omits those objects with CMake 3.28, leaving Lua profiles unavailable at runtime.
+add_library(EightBitEditorObjects OBJECT QRegexSearch.h QRegexSearch.cpp)
+set_target_properties(EightBitEditorObjects PROPERTIES AUTOMOC OFF AUTOUIC OFF)
 target_link_libraries(EightBitEditorObjects PRIVATE Qt6::Core scintilla)
 target_link_libraries(EightBitEditor INTERFACE "$<TARGET_OBJECTS:EightBitEditorObjects>")
+target_sources(EightBitEditor INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/scripts.qrc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/themes/themes.qrc")
 add_dependencies(EightBitEditor EightBitEditorObjects)
