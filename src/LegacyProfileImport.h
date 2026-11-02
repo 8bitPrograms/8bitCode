@@ -13,6 +13,7 @@ struct Result {
     bool ran = false;
     int copied = 0;
     QStringList skipped; // already present in the new profile; left untouched
+    QStringList links;   // symlinks, junctions and folders seen twice; never followed or copied
     QStringList errors;  // any error keeps the marker away, so the next start retries
 };
 
@@ -20,7 +21,9 @@ struct Result {
 QString legacyDirectoryFor(const QString &currentDirectory);
 
 // Copies files from legacyDirectory that do not exist yet in currentDirectory, then
-// writes the marker. Never changes legacyDirectory. With the marker present this is one stat.
+// writes the marker. Never changes legacyDirectory and writes only inside
+// currentDirectory: folders inside each other are refused, and links are never
+// followed. With the marker present this is one stat.
 Result run(const QString &legacyDirectory, const QString &currentDirectory);
 
 }

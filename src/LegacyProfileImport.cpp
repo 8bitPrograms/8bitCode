@@ -2,18 +2,89 @@
 #include "LegacyProfileImport.h"
 
 #include <QDir>
-#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QSaveFile>
 
+#include <set>
+#include <utility>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#endif
+
 namespace LegacyProfileImport {
 namespace {
-bool copyFile(const QFileInfo &source, const QString &target, QString &error)
+// Symlinks, Windows junctions, mount points and every other reparse point
+// lead out of the folder they sit in; the import never follows one.
+bool isLink(const QFileInfo &info)
+{
+    if (info.isSymLink()) return true;
+#ifdef Q_OS_WIN
+    const DWORD attributes = GetFileAttributesW(reinterpret_cast<const wchar_t *>(
+        QDir::toNativeSeparators(info.absoluteFilePath()).utf16()));
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_REPARSE_POINT);
+#else
+    return false;
+#endif
+}
+
+// The path with all links resolved. For a path that does not exist yet, its
+// nearest existing ancestor is resolved and the rest appended. Empty if that
+// ancestor cannot be resolved (for example a link to nowhere).
+QString resolved(const QString &path)
+{
+    QString existing = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+    QStringList rest;
+    for (QFileInfo info(existing); !info.exists() && !info.isSymLink(); info.setFile(existing)) {
+        const QString parent = info.absolutePath();
+        if (parent == existing) return {};
+        rest.prepend(info.fileName());
+        existing = parent;
+    }
+    const QString canonical = QFileInfo(existing).canonicalFilePath();
+    if (canonical.isEmpty() || rest.isEmpty()) return canonical;
+    return QDir::cleanPath(canonical + '/' + rest.join('/'));
+}
+
+// Both paths resolved. Equal counts as inside.
+bool inside(const QString &root, const QString &path, Qt::CaseSensitivity cs)
+{
+    return path.compare(root, cs) == 0 || path.startsWith(root.endsWith('/') ? root : root + '/', cs);
+}
+
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
+constexpr Qt::CaseSensitivity fileNameCase = Qt::CaseInsensitive;
+#else
+constexpr Qt::CaseSensitivity fileNameCase = Qt::CaseSensitive;
+#endif
+
+#ifndef Q_OS_WIN
+// Identity of a directory, to notice the same folder reached a second way
+// (a bind mount, for example), which no path comparison can see.
+std::pair<dev_t, ino_t> identity(const QString &path)
+{
+    struct stat st{};
+    if (::stat(QFile::encodeName(path).constData(), &st) != 0) return {0, 0};
+    return {st.st_dev, st.st_ino};
+}
+#endif
+
+bool copyFile(const QFileInfo &source, const QString &target, const QString &root, QString &error)
 {
     QFile in(source.absoluteFilePath());
     if (!in.open(QIODevice::ReadOnly)) { error = in.errorString(); return false; }
     if (!QDir().mkpath(QFileInfo(target).absolutePath())) { error = QStringLiteral("cannot create folder"); return false; }
+    // Checked again now that the folder exists: it must still be a real folder in the new profile.
+    if (!inside(root, QFileInfo(QFileInfo(target).absolutePath()).canonicalFilePath(), fileNameCase)) {
+        error = QStringLiteral("leads outside the 8bitCode folder; not copied");
+        return false;
+    }
     // QSaveFile commits only a complete copy, so a full disk never leaves a truncated file.
     QSaveFile out(target);
     if (!out.open(QIODevice::WriteOnly)) { error = out.errorString(); return false; }
@@ -49,41 +120,82 @@ Result run(const QString &legacyDirectory, const QString &currentDirectory)
     Result result;
     const QDir current(currentDirectory);
     if (legacyDirectory.isEmpty() || QFileInfo::exists(current.filePath(MarkerName))) return result;
-    const QDir legacy(legacyDirectory);
-    if (!legacy.exists() || legacy == current) return result;
+    if (!QFileInfo(legacyDirectory).isDir()) return result;
+    // Compare where both folders really are. One inside the other would copy
+    // into the old folder, or walk into its own output.
+    const QString legacyRoot = resolved(legacyDirectory);
+    const QString currentRoot = resolved(currentDirectory);
+    if (legacyRoot.isEmpty() || currentRoot.isEmpty()) {
+        result.errors << QStringLiteral("cannot resolve the 8bitPad or 8bitCode folder; nothing copied");
+        return result;
+    }
+    // The same folder reached through a link: it is already the profile.
+    if (legacyRoot.compare(currentRoot, Qt::CaseInsensitive) == 0) return result;
+    // Case-insensitive on every system, so a doubtful case is refused.
+    if (inside(legacyRoot, currentRoot, Qt::CaseInsensitive) || inside(currentRoot, legacyRoot, Qt::CaseInsensitive)) {
+        result.errors << QStringLiteral("the 8bitPad and 8bitCode folders are inside each other; nothing copied");
+        return result;
+    }
     result.ran = true;
-    QDirIterator it(legacy.absolutePath(), QDir::Files | QDir::Hidden | QDir::NoSymLinks,
-                    QDirIterator::Subdirectories);
-    while (it.hasNext()) {
-        const QFileInfo source(it.next());
-        // FIFOs or sockets would hang forever in QFile::open(QIODevice::ReadOnly).
-        if (!source.isFile()) continue;
-        const QString relative = legacy.relativeFilePath(source.absoluteFilePath());
-        if (relative.endsWith(QStringLiteral(".lock"))) continue; // stale QSettings/QLockFile locks
-        const QString target = current.filePath(relative);
-        const QFileInfo targetInfo(target);
-        if (targetInfo.exists()) {
-            // Same size but a different time: an earlier unfinished import had
-            // already written the contents, then died before the marker. Finish
-            // it by fixing only the time, never the data.
-            if (targetInfo.size() != source.size() || targetInfo.lastModified() == source.lastModified()) {
-                result.skipped << relative;
+
+#ifndef Q_OS_WIN
+    std::set<std::pair<dev_t, ino_t>> visited{identity(legacyRoot)};
+    if (QDir().mkpath(currentRoot)) visited.insert(identity(currentRoot));
+#endif
+    // Only the old root itself may be a link; below it the walk sees links as entries and skips them.
+    QList<QString> folders{QString()};
+    while (!folders.isEmpty()) {
+        const QString folder = folders.takeLast();
+        const QFileInfoList entries = QDir(folder.isEmpty() ? legacyRoot : legacyRoot + '/' + folder)
+            .entryInfoList(QDir::Files | QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot, QDir::Name);
+        for (const QFileInfo &source : entries) {
+            const QString relative = folder.isEmpty() ? source.fileName() : folder + '/' + source.fileName();
+            if (isLink(source)) { result.links << relative; continue; }
+            if (source.isDir()) {
+#ifndef Q_OS_WIN
+                if (!visited.insert(identity(source.absoluteFilePath())).second) { result.links << relative; continue; }
+#endif
+                folders << relative;
                 continue;
             }
-            QFile copied(target);
-            if (!copied.open(QIODevice::ReadWrite)
-                || !copied.setFileTime(source.lastModified(), QFileDevice::FileModificationTime))
-                result.errors << relative + QStringLiteral(": cannot restore the original file time");
-            continue;
+            // FIFOs or sockets would hang forever in QFile::open(QIODevice::ReadOnly).
+            if (!source.isFile()) continue;
+            if (relative.endsWith(QStringLiteral(".lock"))) continue; // stale QSettings/QLockFile locks
+            const QString target = currentRoot + '/' + relative;
+            // A link already in the new folder could send the copy anywhere,
+            // including into the old folder.
+            const QFileInfo targetInfo(target);
+            if (isLink(targetInfo) || !inside(currentRoot, resolved(target), fileNameCase)) {
+                result.errors << relative + QStringLiteral(": leads outside the 8bitCode folder; not copied");
+                continue;
+            }
+            if (targetInfo.exists()) {
+                // Same size but a different time: an earlier unfinished import had
+                // already written the contents, then died before the marker. Finish
+                // it by fixing only the time, never the data.
+                if (targetInfo.size() != source.size() || targetInfo.lastModified() == source.lastModified()) {
+                    result.skipped << relative;
+                    continue;
+                }
+                QFile copied(target);
+                if (!copied.open(QIODevice::ReadWrite)
+                    || !copied.setFileTime(source.lastModified(), QFileDevice::FileModificationTime))
+                    result.errors << relative + QStringLiteral(": cannot restore the original file time");
+                continue;
+            }
+            QString error;
+            if (copyFile(source, target, currentRoot, error)) ++result.copied;
+            else result.errors << relative + QStringLiteral(": ") + error;
         }
-        QString error;
-        if (copyFile(source, target, error)) ++result.copied;
-        else result.errors << relative + QStringLiteral(": ") + error;
     }
     if (result.errors.isEmpty()) {
-        QSaveFile marker(current.filePath(MarkerName));
+        // QSaveFile writes through a link, so the marker gets the same check as every copy.
+        const QString markerPath = currentRoot + '/' + QLatin1String(MarkerName);
+        QSaveFile marker(markerPath);
         const QByteArray text = "Copied from the 8bitPad profile; the original folder was left unchanged.\n";
-        if (!QDir().mkpath(current.absolutePath()) || !marker.open(QIODevice::WriteOnly) || marker.write(text) != text.size() || !marker.commit())
+        if (isLink(QFileInfo(markerPath)))
+            result.errors << QLatin1String(MarkerName) + QStringLiteral(": leads outside the 8bitCode folder; not written");
+        else if (!QDir().mkpath(currentRoot) || !marker.open(QIODevice::WriteOnly) || marker.write(text) != text.size() || !marker.commit())
             result.errors << QStringLiteral("%1: %2").arg(QLatin1String(MarkerName), marker.errorString());
     }
     return result;

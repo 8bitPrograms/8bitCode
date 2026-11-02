@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
+#include <QProcess>
 #include <QTemporaryDir>
 #include <QtTest>
 #ifdef Q_OS_UNIX
@@ -119,6 +120,147 @@ private slots:
         QVERIFY(!QFileInfo::exists(current + "/session/report.pipe"));
         QVERIFY(QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
         QCOMPARE(snapshot(legacy), before);
+    }
+#endif
+
+#ifdef Q_OS_UNIX
+    void linksInTheOldFolderAreNotFollowed()
+    {
+        QVERIFY(write(current + "/mine.txt", "already in 8bitCode"));
+        QVERIFY(write(temp.filePath("outside/secret.txt"), "not part of any profile"));
+        QVERIFY(QFile::link(current, legacy + "/to-new"));
+        QVERIFY(QFile::link(temp.filePath("outside"), legacy + "/session/to-outside"));
+        QVERIFY(QFile::link(temp.filePath("outside/secret.txt"), legacy + "/to-file"));
+        const QStringList before = snapshot(legacy), outside = snapshot(temp.filePath("outside"));
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.copied, 4);
+        QStringList links = result.links;
+        links.sort();
+        QCOMPARE(links, QStringList({"session/to-outside", "to-file", "to-new"}));
+        QStringList names;
+        for (const QString &entry : snapshot(current)) names << entry.section(' ', 0, 0);
+        QCOMPARE(names, QStringList({".imported-from-8bitPad", "8bitpad.ini", "mine.txt", "session", "session/session.ini",
+            "session/unsaved-1.txt", "updates.ini"}));
+        QCOMPARE(snapshot(legacy), before);
+        QCOMPARE(snapshot(temp.filePath("outside")), outside);
+    }
+
+    void linkLoopsEnd()
+    {
+        QVERIFY(QFile::link(".", legacy + "/loop"));
+        QVERIFY(QFile::link("..", legacy + "/session/up"));
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.copied, 4);
+        QCOMPARE(result.links.size(), 2);
+        QVERIFY(!QFileInfo::exists(current + "/loop") && !QFileInfo(current + "/loop").isSymLink());
+        QVERIFY(!QFileInfo::exists(current + "/session/up") && !QFileInfo(current + "/session/up").isSymLink());
+    }
+
+    void oldFolderContainingTheNewOneIsRefused()
+    {
+        // The old profile is a link to a folder that holds the new profile:
+        // copying would walk into its own output.
+        QVERIFY(write(current + "/mine.txt", "already in 8bitCode"));
+        QVERIFY(QDir(legacy).removeRecursively());
+        QVERIFY(QFile::link(temp.filePath("data"), legacy));
+        const QStringList before = snapshot(temp.filePath("data"));
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(snapshot(temp.filePath("data")), before);
+        QVERIFY(!result.ran);
+        QCOMPARE(result.copied, 0);
+        QCOMPARE(result.errors.size(), 1);
+    }
+
+    void newFolderInsideTheOldOneIsRefused()
+    {
+        // The new profile is a link into the old one: every copy would change the old folder.
+        QVERIFY(QDir(temp.filePath("data/8bitCode")).mkpath("."));
+        QVERIFY(QFile::link(legacy + "/session", current));
+        const QStringList before = snapshot(legacy);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(snapshot(legacy), before);
+        QVERIFY(!result.ran);
+        QCOMPARE(result.copied, 0);
+        QCOMPARE(result.errors.size(), 1);
+    }
+
+    void sameFolderThroughALinkIsLeftAlone()
+    {
+        QVERIFY(QDir(temp.filePath("data/8bitCode")).mkpath("."));
+        QVERIFY(QFile::link(legacy, current));
+        const QStringList before = snapshot(legacy);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY(!result.ran);
+        QVERIFY(result.errors.isEmpty());
+        QCOMPARE(snapshot(legacy), before);
+    }
+
+    void linksInTheNewFolderAreNotWrittenThrough()
+    {
+        // Links already in the new folder must not carry a copy outside it.
+        QVERIFY(QDir(temp.filePath("outside")).mkpath("."));
+        QVERIFY(QDir(current).mkpath("."));
+        QVERIFY(QFile::link(temp.filePath("outside"), current + "/session"));
+        QVERIFY(QFile::link(temp.filePath("outside/updates.ini"), current + "/updates.ini"));
+        QVERIFY(QFile::link(temp.filePath("outside/marker"), current + '/' + LegacyProfileImport::MarkerName));
+        const QStringList before = snapshot(legacy);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(snapshot(temp.filePath("outside")), QStringList());
+        QStringList errors = result.errors;
+        errors.sort();
+        QCOMPARE(errors.size(), 3);
+        QVERIFY(errors.at(0).startsWith("session/session.ini: "));
+        QVERIFY(errors.at(1).startsWith("session/unsaved-1.txt: "));
+        QVERIFY(errors.at(2).startsWith("updates.ini: "));
+        QCOMPARE(result.copied, 1);
+        QCOMPARE(snapshot(legacy), before);
+
+        // Even with every copy possible, the marker is not written through a link.
+        QVERIFY(QFile::remove(current + "/session"));
+        QVERIFY(QFile::remove(current + "/updates.ini"));
+        const auto again = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(again.errors.size(), 1);
+        QVERIFY(again.errors.first().startsWith(LegacyProfileImport::MarkerName));
+        QCOMPARE(snapshot(temp.filePath("outside")), QStringList());
+    }
+#endif
+
+#ifdef Q_OS_WIN
+    void junctionsAreNotFollowed()
+    {
+        // Junctions are not symlinks to every API; the import must still not follow them.
+        QVERIFY(write(current + "/mine.txt", "already in 8bitCode"));
+        QVERIFY(write(temp.filePath("outside/secret.txt"), "not part of any profile"));
+        const auto junction = [](const QString &link, const QString &target) {
+            return QProcess::execute("cmd", {"/c", "mklink", "/J", QDir::toNativeSeparators(link), QDir::toNativeSeparators(target)}) == 0;
+        };
+        QVERIFY(junction(legacy + "/to-new", current));
+        QVERIFY(junction(legacy + "/session/to-outside", temp.filePath("outside")));
+        const QStringList before = snapshot(temp.filePath("outside"));
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join('\n')));
+        QCOMPARE(result.copied, 4);
+        QStringList links = result.links;
+        links.sort();
+        QCOMPARE(links, QStringList({"session/to-outside", "to-new"}));
+        QVERIFY(!QFileInfo::exists(current + "/to-new"));
+        QVERIFY(!QFileInfo::exists(current + "/session/to-outside"));
+        QCOMPARE(snapshot(temp.filePath("outside")), before);
+    }
+
+    void junctionInTheNewFolderIsNotWrittenThrough()
+    {
+        QVERIFY(QDir(temp.filePath("outside")).mkpath("."));
+        QVERIFY(QDir(current).mkpath("."));
+        QCOMPARE(QProcess::execute("cmd", {"/c", "mklink", "/J", QDir::toNativeSeparators(current + "/session"),
+            QDir::toNativeSeparators(temp.filePath("outside"))}), 0);
+        const auto result = LegacyProfileImport::run(legacy, current);
+        QCOMPARE(result.errors.size(), 2);
+        QCOMPARE(result.copied, 2);
+        QCOMPARE(QDir(temp.filePath("outside")).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), QStringList());
+        QVERIFY(!QFileInfo::exists(current + '/' + LegacyProfileImport::MarkerName));
     }
 #endif
 

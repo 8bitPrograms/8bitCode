@@ -105,6 +105,7 @@ bool NotepadNextApplication::init()
         if (imported.ran)
             qInfo("8bitPad profile import: %d copied, %d already present", imported.copied, int(imported.skipped.size()));
         for (const QString &name : imported.skipped) qInfo("8bitPad profile import kept existing %s", qUtf8Printable(name));
+        for (const QString &name : imported.links) qInfo("8bitPad profile import did not follow link %s", qUtf8Printable(name));
         for (const QString &error : imported.errors) qWarning("8bitPad profile import will retry: %s", qUtf8Printable(error));
     }
     settings = new ApplicationSettings(this);

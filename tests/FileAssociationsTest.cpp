@@ -73,6 +73,7 @@ private slots:
     void windowsContextToggleDoesNotChangeAssociations();
     void windowsUpgradeAdoptsOnlyRemoved8bitPadEntries();
     void windowsUpgradeKeepsTheRegistryWhileTheOldExeStillExists();
+    void windowsUpgradeScanRunsOnlyOnce();
     void windowsCleanupIncludesCustomAndPreservesSettings();
     void windowsUnverifiedChangesAreRestored();
     void linuxDeduplicatesAndConfirmsMimeDefaults();
@@ -417,6 +418,38 @@ void FileAssociationsTest::windowsUpgradeKeepsTheRegistryWhileTheOldExeStillExis
     QVERIFY(Backend(installed).refreshOwnedIcons().ok());
     QCOMPARE(store.allKeys(), before.keys());
     for (const auto &key : before.keys()) QCOMPARE(store.value(key), before.value(key));
+}
+
+void FileAssociationsTest::windowsUpgradeScanRunsOnlyOnce()
+{
+    QTemporaryDir temp;
+    QSettings store(temp.filePath("registry.ini"), QSettings::IniFormat);
+    auto installed = windows(store);
+    installed.executable = "C:/Fixture/AppData/Local/Programs/8bitCode/8bitCode.exe";
+    const QString removed = "C:/Fixture/AppData/Local/Programs/8bitPad/8bitPad.exe";
+    const QString classes = "Software/Classes/";
+    int notices = 0;
+    installed.associationsChanged = [&notices] { ++notices; };
+
+    // A fresh install: nothing to adopt, and only the one-time flag is written.
+    QVERIFY(Backend(installed).refreshOwnedIcons().ok());
+    QCOMPARE(store.allKeys(), QStringList{"Software/8bitPad/ShellIntegration/LegacyEntriesChecked"});
+    QCOMPARE(notices, 0);
+
+    // Later starts do not scan again: an orphaned entry that appears now is not
+    // looked at, which is how the normal start stays free of the registry walk.
+    store.setValue(classes + "8bitPad.py/shell/open/command/.", windowsOpenCommand(removed, "%1"));
+    QVERIFY(Backend(installed).refreshOwnedIcons().ok());
+    QCOMPARE(store.value(classes + "8bitPad.py/shell/open/command/.").toString(), windowsOpenCommand(removed, "%1"));
+
+    // The flag belongs to this exe path; an install in another place checks once for itself.
+    auto moved = installed;
+    moved.executable = "C:/Fixture/AppData/Local/Programs/8bitCode/bin/8bitCode.exe";
+    store.setValue(classes + "8bitPad.md/shell/open/command/.",
+        windowsOpenCommand("C:/Fixture/AppData/Local/Programs/8bitPad/bin/8bitPad.exe", "%1"));
+    QVERIFY(Backend(moved).refreshOwnedIcons().ok());
+    QCOMPARE(store.value(classes + "8bitPad.md/shell/open/command/.").toString(), windowsOpenCommand(moved.executable, "%1"));
+    QCOMPARE(notices, 1);
 }
 
 void FileAssociationsTest::windowsContextToggleDoesNotChangeAssociations()

@@ -47,6 +47,8 @@ const QString folderDesktopId = QStringLiteral("8bitcode-folder.desktop");
 // Entries 8bitPad wrote before the rename; removal cleans them up too.
 const QStringList legacyDesktopIds{QStringLiteral("8bitpad.desktop"), QStringLiteral("8bitpad-folder.desktop")};
 const QString iconRevisionKey = QStringLiteral("Software/8bitPad/ShellIntegration/IconRevision");
+// Set once the old 8bitPad entries were looked at, so later starts skip that scan.
+const QString legacyAdoptedKey = QStringLiteral("Software/8bitPad/ShellIntegration/LegacyEntriesChecked");
 const QString iconHandlerClass = QString::fromLatin1(FileIconHandlerWindows::ClassIdString);
 const QString iconHandlerComKey = classes + "CLSID/" + iconHandlerClass;
 const QString applicationIconHandlerKey = classes + "Applications/8bitCode.exe/shellex/IconHandler/.";
@@ -571,7 +573,11 @@ BatchResult Backend::refreshOwnedIcons()
         QRegularExpression::CaseInsensitiveOption);
     const auto match = installed.match(QDir::fromNativeSeparators(services.executable));
     const QString legacyExe = match.hasMatch() ? match.captured(1) + "8bitPad" + match.captured(2) + "8bitPad.exe" : QString();
-    if (!legacyExe.isEmpty() && !QFileInfo::exists(legacyExe)) {
+    // One registry read on normal starts; the scan below reads hundreds of keys.
+    // While the old exe still exists, its entries are not orphaned yet: check again later.
+    const QString checked = QDir::fromNativeSeparators(services.executable);
+    if (!legacyExe.isEmpty() && registry->value(legacyAdoptedKey).toString().compare(checked, Qt::CaseInsensitive) != 0
+        && !QFileInfo::exists(legacyExe)) {
         QStringList keys;
         QStringList legacyExtensions = registeredExtensions();
         for (const auto &group : catalog()) legacyExtensions += group.extensions;
@@ -590,6 +596,9 @@ BatchResult Backend::refreshOwnedIcons()
             if (verb) registry->setValue(classes + key + "/Icon", '"' + QDir::toNativeSeparators(services.executable) + "\",0");
             changed = true;
         }
+        // Written after the scan, so a crash during it scans again. Not a change
+        // of associations by itself: Explorer needs no notice for it.
+        registry->setValue(legacyAdoptedKey, checked);
     }
 
     // A portable or isolated copy must never redirect another copy's entries.
