@@ -1,4 +1,6 @@
 # 8bitPad
+Current release workflow: [Windows builds on the maintainer's PC](doc/LOCAL-RELEASES.md).
+GitHub Actions builds are manual-only while other platform builds are paused.
 **Current version: 1.0.0.** Pixel Core branding: cobalt blue pixel tile, stepped corners and charcoal text bars, matching 8bitShell.
 
 Local build, test, portable launch and troubleshooting instructions: [doc/Building.md](doc/Building.md).

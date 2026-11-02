@@ -1,9 +1,7 @@
 name: Build, test and prepare release
 on:
-  push:
-    branches: [main, master]
-    tags: ['v*']
-  pull_request:
+  # Builds currently run on the maintainer's Windows PC. Keep hosted builds
+  # available only as an explicit manual fallback.
   workflow_dispatch:
     inputs:
       target:

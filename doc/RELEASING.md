@@ -1,5 +1,8 @@
 # 8bitPad 1.0 release preparation
 
+> Current policy: [local Windows releases](LOCAL-RELEASES.md). Automatic hosted
+> builds and the multi-platform release requirement below are temporarily paused.
+
 The application starts at **1.0.0**. The source is now in the new 8bitPrograms repository checkout, using its new Git metadata and origin. No release has been published.
 
 ## Release matrix
