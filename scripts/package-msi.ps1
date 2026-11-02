@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$PackageDirectory,
     [Parameter(Mandatory=$true)][string]$OutputMsi,
-    [string]$Version = '1.0.0',
+    [string]$Version = '1.0.1',
     [string]$WixRoot = '',
     [switch]$GenerateOnly
 )
@@ -60,7 +60,7 @@ $output = Resolve-RepoPath $OutputMsi
 if ([IO.Path]::GetExtension($output) -ine '.msi') { throw 'OutputMsi must name an .msi file.' }
 if ($output.StartsWith($package + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'OutputMsi must be outside the portable package.' }
 if (Test-Path -LiteralPath $output) { throw "Refusing to overwrite existing MSI: $output" }
-$required = @('8bitPad.exe', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'qt.conf', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'SHA256SUMS.txt')
+$required = @('8bitCode.exe', '8p.exe', '8bitpad.exe', 'Qt6Core.dll', 'Qt6Core5Compat.dll', 'Qt6Gui.dll', 'Qt6Widgets.dll', 'Qt6Network.dll', 'platforms/qwindows.dll', 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll', 'qt.conf', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'SHA256SUMS.txt')
 foreach ($relative in $required) {
     if (!(Test-Path -LiteralPath (Join-Path $package $relative) -PathType Leaf)) { throw "Missing required package file: $relative" }
 }
@@ -70,15 +70,15 @@ if (!(Test-Path -LiteralPath (Join-Path $package '8bitPadFileIcons.dll') -PathTy
 foreach ($relative in @('licenses', 'theme-licenses')) {
     if (!(Test-Path -LiteralPath (Join-Path $package $relative) -PathType Container)) { throw "Missing package license directory: $relative" }
 }
-$exe = [IO.File]::OpenRead((Join-Path $package '8bitPad.exe'))
+$exe = [IO.File]::OpenRead((Join-Path $package '8bitCode.exe'))
 $reader = New-Object IO.BinaryReader($exe)
 try {
-    if ($reader.ReadUInt16() -ne 0x5a4d) { throw '8bitPad.exe is not a PE executable.' }
+    if ($reader.ReadUInt16() -ne 0x5a4d) { throw '8bitCode.exe is not a PE executable.' }
     $exe.Position = 0x3c
     $offset = $reader.ReadInt32()
     if ($offset -lt 64 -or $offset -gt ($exe.Length - 6)) { throw 'Invalid PE header.' }
     $exe.Position = $offset
-    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) { throw '8bitPad.exe must be a Windows x64 executable.' }
+    if ($reader.ReadUInt32() -ne 0x4550 -or $reader.ReadUInt16() -ne 0x8664) { throw '8bitCode.exe must be a Windows x64 executable.' }
 } finally { $reader.Dispose(); $exe.Dispose() }
 
 # Recheck the portable package's complete included inventory. A changed or extra

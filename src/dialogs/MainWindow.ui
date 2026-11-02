@@ -14,7 +14,7 @@
    <bool>true</bool>
   </property>
   <property name="windowTitle">
-   <string>8bitPad[*]</string>
+   <string>8bitCode[*]</string>
   </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QPushButton" name="pushExitFullScreen">
@@ -799,7 +799,7 @@
      <normaloff>:/icons/newfile.png</normaloff>:/icons/newfile.png</iconset>
    </property>
    <property name="text">
-    <string>About 8bitPad</string>
+    <string>About 8bitCode</string>
    </property>
    <property name="menuRole">
     <enum>QAction::AboutRole</enum>

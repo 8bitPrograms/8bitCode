@@ -14,7 +14,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     if (!length || length >= module.size()) return ERROR_BAD_PATHNAME;
     std::wstring target(module.data(), length);
     target.resize(target.find_last_of(L"\\/") + 1);
-    target += L"8bitPad.exe";
+    target += L"8bitCode.exe";
     // The executable token cannot contain an embedded quote in a Windows path.
     const wchar_t *tail = GetCommandLineW();
     while (*tail == L' ' || *tail == L'\t') ++tail;
@@ -36,7 +36,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int)
     // Inherit the caller's cwd; never change it to the installation directory.
     if (!CreateProcessW(target.c_str(), command.data(), nullptr, nullptr, TRUE, 0, nullptr, nullptr, &startup, &child)) {
         const DWORD error = GetLastError();
-        const std::wstring message = L"8p: could not start 8bitPad (Windows error " + std::to_wstring(error) + L").\r\n";
+        const std::wstring message = L"8p: could not start 8bitCode (Windows error " + std::to_wstring(error) + L").\r\n";
         const HANDLE stderrHandle = GetStdHandle(STD_ERROR_HANDLE);
         DWORD written = 0;
         WriteConsoleW(stderrHandle, message.data(), static_cast<DWORD>(message.size()), &written, nullptr);

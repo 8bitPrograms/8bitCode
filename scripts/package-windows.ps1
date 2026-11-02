@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory=$true)][string]$QtRoot,
     [string]$QtCompatRoot = '',
     [string]$BuildDirectory = 'build/windows-release',
-    [string]$OutputDirectory = 'dist/8bitPad-windows-x64',
+    [string]$OutputDirectory = 'dist/8bitCode-windows-x64',
     [string]$VcRedistDirectory = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -18,8 +18,9 @@ $QtRoot = (Resolve-Path -LiteralPath $QtRoot).Path
 if ($QtCompatRoot) { $QtCompatRoot = (Resolve-Path -LiteralPath $QtCompatRoot).Path }
 if (Test-Path -LiteralPath $output) { throw "Choose a fresh package directory: $output" }
 New-Item -ItemType Directory -Path $output | Out-Null
-Copy-Item -LiteralPath (Join-Path $build '8bitPad.exe') -Destination $output
+Copy-Item -LiteralPath (Join-Path $build '8bitCode.exe') -Destination $output
 Copy-Item -LiteralPath (Join-Path $build '8p.exe') -Destination $output
+Copy-Item -LiteralPath (Join-Path $build '8bitpad.exe') -Destination $output
 Copy-Item -LiteralPath (Join-Path $build '8bitPadFileIcons.dll') -Destination $output
 Copy-Item -LiteralPath (Join-Path $repo 'src/update/Apply-Update.ps1') -Destination $output
 # Keep the SDK read-only. A private tool directory shares its executable/DLL
@@ -53,7 +54,7 @@ $queriedBins = & $qtpaths --query QT_INSTALL_BINS
 if ($LASTEXITCODE -or [System.IO.Path]::GetFullPath($queriedBins.Trim()) -ne [System.IO.Path]::GetFullPath($toolBin)) {
     throw "Qt deployment bin overlay was not selected: $queriedBins"
 }
-& (Join-Path $toolBin 'windeployqt.exe') --qtpaths $qtpaths --release --no-translations --no-opengl-sw --no-quick-import --no-compiler-runtime --include-plugins qoffscreen (Join-Path $output '8bitPad.exe')
+& (Join-Path $toolBin 'windeployqt.exe') --qtpaths $qtpaths --release --no-translations --no-opengl-sw --no-quick-import --no-compiler-runtime --include-plugins qoffscreen (Join-Path $output '8bitCode.exe')
 if ($LASTEXITCODE) { throw 'Qt runtime deployment failed.' }
 # App-local MSVC runtime makes the portable bundle independent of a developer
 # shell or a separately installed runtime. Copy only the redistributable CRT.
@@ -85,8 +86,8 @@ Plugins=.
 '@ | Set-Content -LiteralPath (Join-Path $output 'qt.conf') -Encoding utf8
 @'
 @echo off
-set "BIT8PAD_PROFILE=%~dp0profile"
-start "" "%~dp08bitPad.exe" %*
+set "BIT8CODE_PROFILE=%~dp0profile"
+start "" "%~dp08bitCode.exe" %*
 '@ | Set-Content -LiteralPath (Join-Path $output 'Start-Portable.cmd') -Encoding ascii
 # Use .NET directly: Get-FileHash may not be exported in a Windows
 # PowerShell process inheriting another agent runtime's module environment.

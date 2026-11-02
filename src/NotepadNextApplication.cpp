@@ -41,6 +41,8 @@
 #include "Lexilla.h"
 
 #include <QCommandLineParser>
+#include <QTextStream>
+#include <cstdlib>
 
 #include <QDirIterator>
 
@@ -52,9 +54,10 @@ const SingleApplication::Options opts = SingleApplication::User | SingleApplicat
 
 void parseCommandLine(QCommandLineParser &parser, const QStringList &args)
 {
-    parser.setApplicationDescription("8bitPad - native text editor for Windows and Linux");
+    parser.setApplicationDescription("8bitCode - native text editor for Windows and Linux");
     parser.addHelpOption();
-    parser.addVersionOption();
+    // QCoreApplication::applicationName remains the legacy profile identity.
+    parser.addOption({{"v", "version"}, "Displays version information."});
 
     parser.addPositionalArgument("files", "Files to open.");
 
@@ -68,6 +71,11 @@ void parseCommandLine(QCommandLineParser &parser, const QStringList &args)
     });
 
     parser.process(args);
+    if (parser.isSet("version")) {
+        QTextStream(stdout) << QGuiApplication::applicationDisplayName() << ' '
+                            << QCoreApplication::applicationVersion() << Qt::endl;
+        std::exit(EXIT_SUCCESS);
+    }
 }
 
 static QString toLocalFileName(const QString file)

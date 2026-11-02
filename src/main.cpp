@@ -30,10 +30,11 @@ int main(int argc, char *argv[])
 {
     qSetMessagePattern("[%{time process}] %{if-debug}D%{endif}%{if-info}I%{endif}%{if-warning}W%{endif}%{if-critical}C%{endif}%{if-fatal}F%{endif}: %{message}");
 
-    // Set these since other parts of the app references these
+    // Keep the persisted profile, translations and single-instance identity
+    // compatible with existing Pad installations. The public product is Code.
     QApplication::setOrganizationName("8bitPad");
     QApplication::setApplicationName("8bitPad");
-    QGuiApplication::setApplicationDisplayName("8bitPad");
+    QGuiApplication::setApplicationDisplayName("8bitCode");
     QGuiApplication::setApplicationVersion(APP_VERSION);
 
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -43,6 +44,10 @@ int main(int argc, char *argv[])
 
     // Default settings format
     QSettings::setDefaultFormat(QSettings::IniFormat);
+
+    // Prefer the new spelling; older portable launchers and scripts keep working.
+    if (!qEnvironmentVariableIsEmpty("BIT8CODE_PROFILE"))
+        qputenv("BIT8PAD_PROFILE", qgetenv("BIT8CODE_PROFILE"));
 
     // Profile overrides are set before constructing SingleApplication or settings.
     for (int i=1; i+1<argc; ++i) {

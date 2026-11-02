@@ -4,7 +4,7 @@ param(
  [Parameter(Mandatory=$true)][string]$Package,
  [Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$Sha256,
  [Parameter(Mandatory=$true)][int]$ParentPid,
- [Parameter(Mandatory=$true)][ValidateSet('8bitPad','8bitShell')][string]$Application,
+ [Parameter(Mandatory=$true)][ValidateSet('8bitPad','8bitCode','8bitShell')][string]$Application,
  [Parameter(Mandatory=$true)][string]$Executable,
  [switch]$Restart
 )
@@ -12,7 +12,8 @@ $ErrorActionPreference='Stop'
 $log=Join-Path (Split-Path -Parent $Package) 'install-update.log'
 try {
  if([IO.Path]::GetExtension($Package) -ine '.msi'){throw 'Expected a Windows Installer package'}
- $root=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "Programs/$Application")).TrimEnd('\')
+ $directory=if($Application -eq '8bitCode'){'8bitPad'}else{$Application}
+ $root=[IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "Programs/$directory")).TrimEnd('\')
  $exe=[IO.Path]::GetFullPath($Executable)
  if($exe -ine "$root\bin\$Application.exe" -and $exe -ine "$root\$Application.exe"){throw 'Unexpected application directory'}
  $parent=Get-Process -Id $ParentPid -ErrorAction SilentlyContinue

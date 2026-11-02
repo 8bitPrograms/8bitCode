@@ -34,6 +34,6 @@ Qt >=6.5 MSVC x64 development modules required: Core, Gui, Widgets, Network, Pri
 
 Pinned ADS, SingleApplication and editorconfig sources are included in `dependency-sources` and used automatically. `-FetchDependencies` opts into fetching the revisions from CMake instead. `-ConfigureOnly` configures without compiling; `-BuildDirectory` chooses another build tree; `-Jobs` controls parallel compilation.
 
-Build output: `build/windows-release/8bitPad.exe`. Test output: `build/windows-release/tests/*.xml` and `tests/smoke/smoke-results.json`. `-Package` creates a new timestamped folder under `dist`; select a fresh custom destination with `-PackageDirectory dist/my-new-package`. Existing packages and profiles are retained. Run `Start-Portable.cmd` from the complete packaged folder.
+Build output: `build/windows-release/8bitCode.exe`. Test output: `build/windows-release/tests/*.xml` and `tests/smoke/smoke-results.json`. `-Package` creates a new timestamped folder under `dist`; select a fresh custom destination with `-PackageDirectory dist/my-new-package`. Existing packages and profiles are retained. Run `Start-Portable.cmd` from the complete packaged folder.
 
 If another agent reports that tools are absent, provide the `-Diagnose` output. An executable absent from PATH may still be installed. A sandbox permission denial does not establish that a directory is missing.

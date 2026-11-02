@@ -1,5 +1,8 @@
 # Current release workflow
 
+The editor is now **8bitCode 1.0.1**. See [rename and compatibility](MIGRATION-8BITCODE.md)
+for the one-time GitHub migration command and retained Pad profile/install IDs.
+
 Effective 2 November 2026: build and test Windows x64 on the maintainer's PC,
 then upload the resulting packages to this repository's GitHub Releases.
 GitHub Actions is manual-only. Linux, macOS and other architectures are paused;

@@ -154,7 +154,7 @@ if(WIN32)
     qt_add_executable(CommandLauncherTest CommandLauncherTest.cpp)
     target_link_libraries(CommandLauncherTest PRIVATE Qt6::Core Qt6::Test)
     set_target_properties(CommandLauncherTest PROPERTIES WIN32_EXECUTABLE FALSE)
-    add_dependencies(CommandLauncherTest BitPadCommand)
+    add_dependencies(CommandLauncherTest BitPadCommand BitPadLegacyCommand)
     add_test(NAME CommandLauncher COMMAND CommandLauncherTest
         -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/command-launcher.xml,junitxml")
     set_tests_properties(CommandLauncher PROPERTIES TIMEOUT 30)

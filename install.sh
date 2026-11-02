@@ -2,7 +2,7 @@
 # The installer uses only tools supplied by a supported desktop OS.
 set -eu
 umask 022
-app='8bitPad'
+app='8bitCode'
 command_names='8bitpad 8p'
 slug='8bitpad'
 repository="${BIT8PAD_REPOSITORY:-@REPOSITORY@}"

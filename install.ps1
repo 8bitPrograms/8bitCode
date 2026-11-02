@@ -13,7 +13,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version 2
-$app='8bitPad'
+$app='8bitCode'
 if(!$Repository){$Repository='@REPOSITORY@'}
 if($Repository.Contains('@') -or $Repository -match '^OWNER/' -or $Repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'){throw 'Set -Repository to the actual GitHub owner/repository.'}
 if($Version -ne 'latest'){

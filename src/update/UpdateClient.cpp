@@ -68,7 +68,9 @@ QString UpdateClient::architecture() {
 }
 bool UpdateClient::ownsInstalledDirectory() const {
 #ifdef Q_OS_WIN
-    const QString base = QDir(qEnvironmentVariable("LOCALAPPDATA")).filePath(QStringLiteral("Programs/") + m_app);
+    // The first Code upgrade retains Pad's installed directory and upgrade ID.
+    const QString directory = m_app == QStringLiteral("8bitCode") ? QStringLiteral("8bitPad") : m_app;
+    const QString base = QDir(qEnvironmentVariable("LOCALAPPDATA")).filePath(QStringLiteral("Programs/") + directory);
     const QString actual = QFileInfo(QCoreApplication::applicationFilePath()).canonicalPath();
     return !actual.isEmpty() && (actual.compare(QDir(base).filePath(QStringLiteral("bin")), Qt::CaseInsensitive) == 0
         || actual.compare(QDir::cleanPath(base), Qt::CaseInsensitive) == 0);

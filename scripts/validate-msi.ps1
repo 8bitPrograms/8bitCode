@@ -72,7 +72,7 @@ try {
     Assert ($files.Count -eq @($manifest.files).Count) 'MSI file table has exactly the manifested payload'
     Assert (@($components | Where-Object { ([int]$_.Attributes -band 260) -ne 260 }).Count -eq 0) 'Every component is x64 and uses a registry key path'
     Assert (@($registry | Where-Object { $_.Root -ne '1' -or $_.Key -ne 'Software\8bitPad\Installer\Components' }).Count -eq 0) 'Registry entries are only owned HKCU installer markers'
-    $launch=@($shortcuts | Where-Object { $_.Target -eq '[INSTALLFOLDER]8bitPad.exe' })
+    $launch=@($shortcuts | Where-Object { $_.Target -eq '[INSTALLFOLDER]8bitCode.exe' })
     $uninstall=@($shortcuts | Where-Object { $_.Target -eq '[System64Folder]msiexec.exe' })
     Assert ($shortcuts.Count -eq 2 -and @($shortcuts | Where-Object { $_.Directory -ne 'BitPadMenuFolder' }).Count -eq 0 -and $launch.Count -eq 1 -and $launch[0].WorkingDirectory -eq 'INSTALLFOLDER') 'Launch and uninstall shortcuts share the 8bitPrograms folder'
     Assert ($uninstall.Count -eq 1 -and $uninstall[0].Arguments -eq ('/x {'+$manifest.productCode+'}')) 'Uninstall shortcut targets this exact ProductCode' 

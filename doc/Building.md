@@ -1,6 +1,6 @@
-# Build and test 8bitPad locally
+# Build and test 8bitCode locally
 
-Run commands from the **8bitPad** repository root. Source builds need development
+Run commands from the **8bitCode** repository root. Source builds need development
 tools; the resulting portable application includes its runtime.
 
 ## Windows x64: quickest path
@@ -40,11 +40,11 @@ in [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md).
 | Output | Location |
 | --- | --- |
 | CMake/Ninja build | `build/windows-release` |
-| Application binary | `build/windows-release/8bitPad.exe` |
+| Application binary | `build/windows-release/8bitCode.exe` |
 | Test details | `build/windows-release/tests/*.xml` |
 | Application smoke report | `build/windows-release/tests/smoke/smoke-results.json` |
 | CTest failure log | `build/windows-release/Testing/Temporary/LastTest.log` |
-| New portable application | `dist/8bitPad-windows-x64-<timestamp>` |
+| New portable application | `dist/8bitCode-windows-x64-<timestamp>` |
 
 Run **Start-Portable.cmd** from the entire new package folder. Its settings stay
 in that folder's `profile` directory. A loose build EXE needs the SDK environment;
@@ -72,7 +72,7 @@ bash scripts/build-linux.sh \
   -DCPM_SingleApplication_SOURCE="$PWD/dependency-sources/singleapplication" \
   -DCPM_editorconfig_core_qt_SOURCE="$PWD/dependency-sources/editorconfig-core-qt" \
   -DFETCHCONTENT_FULLY_DISCONNECTED=ON
-./build-linux/src/8bitPad
+./build-linux/src/8bitCode
 ```
 
 The helper builds Release and runs tests offscreen. Set
@@ -108,7 +108,7 @@ cmake -S . -B build/local-macos -G Ninja \
   -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 cmake --build build/local-macos --parallel 4
 QT_QPA_PLATFORM=offscreen ctest --test-dir build/local-macos --output-on-failure --no-tests=error
-open build/local-macos/src/8bitPad.app
+open build/local-macos/src/8bitCode.app
 ```
 
 Keep each architecture in its own build directory. This macOS recipe is prepared
@@ -142,8 +142,8 @@ installer lifecycle.
 
 ## Check Open Shell with 8bitShell
 
-1. Build a fresh portable **8bitShell** and **8bitPad**. Their build guides are
-   independent; 8bitPad itself does not need 8bitShell to start.
+1. Build a fresh portable **8bitShell** and **8bitCode**. Their build guides are
+   independent; 8bitCode itself does not need 8bitShell to start.
 2. Start the newly built Pad through its `Start-Portable.cmd`.
 3. In **Preferences > Terminal**, use a discovered 8bitShell installation or
    select **Custom terminal** and browse to the newly built

@@ -2,12 +2,18 @@
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][string]$AssetDirectory)
 $ErrorActionPreference = 'Stop'
+function Get-PublishSha256([string]$Path) {
+    $hash = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try { return [BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $hash.Dispose() }
+}
 $repo = Split-Path -Parent $PSScriptRoot
 if (![IO.Path]::IsPathRooted($AssetDirectory)) { $AssetDirectory = Join-Path $repo $AssetDirectory }
 $assets = (Resolve-Path -LiteralPath $AssetDirectory).Path
 $manifestPath = Join-Path $assets 'release-manifest.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-if ($manifest.repository -notmatch '^8bitPrograms/(8bitPad|8bitNotes)$' -or
+if ($manifest.repository -notmatch '^8bitPrograms/(8bitCode|8bitNotes)$' -or
     $manifest.tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+-local\.[0-9.]+$' -or
     $manifest.sourceCommit -notmatch '^[0-9a-f]{40}$' -or
     $manifest.architecture -ne 'x64' -or $manifest.platform -ne 'windows') {
@@ -31,7 +37,7 @@ try {
         if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Missing asset: $file" }
         $item = Get-Item -LiteralPath $file
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Release assets must be ordinary files.' }
-        $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+        $hash = Get-PublishSha256 $file
         if ($hash -ne $asset.sha256 -or $item.Length -ne $asset.size) { throw "Asset changed: $($asset.name)" }
         $names += $file
     }
@@ -65,7 +71,7 @@ try {
     $checks = @($manifest.assets)
     foreach ($path in @($manifestPath, (Join-Path $assets 'SHA256SUMS.txt'))) {
         $checks += [pscustomobject]@{ name = [IO.Path]::GetFileName($path); size = (Get-Item -LiteralPath $path).Length;
-            sha256 = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
+            sha256 = (Get-PublishSha256 $path) }
     }
     foreach ($asset in $checks) {
         $uploaded = @($release.assets | Where-Object { $_.name -eq $asset.name })

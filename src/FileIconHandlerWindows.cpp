@@ -101,7 +101,7 @@ public:
         while (directoryLength && executable[directoryLength - 1] != L'\\' && executable[directoryLength - 1] != L'/')
             --directoryLength;
         if (!directoryLength) return S_FALSE;
-        constexpr wchar_t name[] = L"8bitPad.exe";
+        constexpr wchar_t name[] = L"8bitCode.exe";
         constexpr size_t nameLength = std::size(name) - 1;
         const size_t resultLength = directoryLength + nameLength;
         if (resultLength + 1 > std::size(executable)) return S_FALSE;

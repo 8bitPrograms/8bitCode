@@ -13,17 +13,24 @@
 class CommandLauncherTest : public QObject {
     Q_OBJECT
 private slots:
+    void preservesArgumentsAndWorkingDirectory_data()
+    {
+        QTest::addColumn<QString>("launcher");
+        QTest::newRow("short-command") << QStringLiteral("8p.exe");
+        QTest::newRow("legacy-command") << QStringLiteral("8bitpad.exe");
+    }
     void preservesArgumentsAndWorkingDirectory()
     {
+        QFETCH(QString, launcher);
         QTemporaryDir fixture;
         QVERIFY(fixture.isValid());
         const QString bin = fixture.filePath("program folder");
         const QString cwd = fixture.filePath(QString::fromUtf8("work \xC3\xBC & % space"));
         QVERIFY(QDir().mkpath(bin));
         QVERIFY(QDir().mkpath(cwd));
-        const QString alias = QDir(bin).filePath("8p.exe");
-        QVERIFY(QFile::copy(QDir(QCoreApplication::applicationDirPath()).filePath("8p.exe"), alias));
-        QVERIFY(QFile::copy(QCoreApplication::applicationFilePath(), QDir(bin).filePath("8bitPad.exe")));
+        const QString alias = QDir(bin).filePath(launcher);
+        QVERIFY(QFile::copy(QDir(QCoreApplication::applicationDirPath()).filePath(launcher), alias));
+        QVERIFY(QFile::copy(QCoreApplication::applicationFilePath(), QDir(bin).filePath("8bitCode.exe")));
         const QString report = fixture.filePath("captured.json");
         const QStringList expected{".", "some.txt", "space & % ! ^ name.txt",
             QString::fromUtf8("T\xC3\xBCrk\xC3\xA7" "e.txt"), "", "quoted\"name", "trailing\\", "--", "-name.txt"};

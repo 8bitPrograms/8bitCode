@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(8bitPad
-    VERSION 1.0.0
+project(8bitCode
+    VERSION 1.0.1
     DESCRIPTION "Cross-platform text editor"
     LANGUAGES CXX
 )
 
 set(APP_DISTRIBUTION "" CACHE STRING "Distribution type")
 string(TIMESTAMP CURRENT_YEAR "%Y")
-set(APP_COPYRIGHT "8bitPad contributors / based on Notepad Next, copyright 2019-${CURRENT_YEAR} Justin Dailey")
+set(APP_COPYRIGHT "8bitPrograms contributors / based on Notepad Next, copyright 2019-${CURRENT_YEAR} Justin Dailey")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
