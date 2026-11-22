@@ -27,6 +27,12 @@ target_link_libraries(FolderSearchTest PRIVATE Qt6::Core Qt6::Test)
 add_test(NAME FolderSearch COMMAND FolderSearchTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/folder-search.xml,junitxml")
 set_tests_properties(FolderSearch PROPERTIES TIMEOUT 120)
 
+qt_add_executable(LegacyProfileImportTest LegacyProfileImportTest.cpp ../src/LegacyProfileImport.cpp)
+target_include_directories(LegacyProfileImportTest PRIVATE ../src)
+target_link_libraries(LegacyProfileImportTest PRIVATE Qt6::Core Qt6::Test)
+add_test(NAME LegacyProfileImport COMMAND LegacyProfileImportTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/legacy-profile-import.xml,junitxml")
+set_tests_properties(LegacyProfileImport PROPERTIES TIMEOUT 60)
+
 qt_add_executable(NavigationTest NavigationTest.cpp ../src/FunctionExtractor.cpp)
 target_include_directories(NavigationTest PRIVATE ../src)
 target_link_libraries(NavigationTest PRIVATE Qt6::Test)
