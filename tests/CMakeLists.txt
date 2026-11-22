@@ -15,7 +15,7 @@ target_link_libraries(EditorLibraryTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME EditorLibrary COMMAND EditorLibraryTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/editor-library.xml,junitxml")
 set_tests_properties(EditorLibrary PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 120)
 
-qt_add_executable(VimModeTest VimModeTest.cpp ../src/VimMode.cpp ../src/VimMode.h)
+qt_add_executable(VimModeTest VimModeTest.cpp)
 target_include_directories(VimModeTest PRIVATE ../src)
 target_link_libraries(VimModeTest PRIVATE EightBit::Editor Qt6::Test)
 add_test(NAME VimMode COMMAND VimModeTest -o -,txt -o "${CMAKE_CURRENT_BINARY_DIR}/vim-mode.xml,junitxml")

@@ -9,8 +9,7 @@
 #include <QPointer>
 #include <QString>
 
-class ApplicationSettings;
-class EditorManager;
+class QSettings;
 class LuaState;
 class ScintillaNext;
 
@@ -39,8 +38,7 @@ class ThemeManager final : public QObject
     Q_OBJECT
 
 public:
-    explicit ThemeManager(ApplicationSettings *settings, LuaState *lua,
-                          EditorManager *editors, QObject *parent = nullptr);
+    explicit ThemeManager(QSettings *settings, LuaState *lua, QObject *parent = nullptr);
 
     static const QList<EditorTheme> &catalog();
     static bool isBonusTheme(const QString &id);
@@ -56,18 +54,21 @@ public slots:
     bool setTheme(const QString &idOrName);
     void watchEditor(ScintillaNext *editor);
     void applyEditor(ScintillaNext *editor) const;
+    void setLanguageProfiles(LuaState *lua);
+    void applyEmbeddedLanguage(ScintillaNext *editor, const QString &language, int styleBase) const;
 
 signals:
     void bonusThemesUnlockedChanged();
     void themeChanged(const QString &id);
+    void editorThemeApplied(ScintillaNext *editor) const;
 
 private:
     void applyApplication() const;
     void applyLanguageStyles(ScintillaNext *editor, const QString &language,
-                             int depth = 0) const;
+                             int depth = 0, int styleBase = 0) const;
     QColor syntaxColor(const QString &name) const;
 
-    ApplicationSettings *mSettings;
+    QSettings *mSettings;
     LuaState *mLua;
     QString mThemeId;
     QList<QPointer<ScintillaNext>> mEditors;
