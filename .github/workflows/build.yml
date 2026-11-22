@@ -40,9 +40,9 @@ jobs:
     outputs:
       native: ${{ steps.matrix.outputs.native }}
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false }
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with: { python-version: '3.12' }
       - run: python scripts/ci/distribution.py validate
       - run: python -m unittest discover -s scripts/ci/tests -v
@@ -65,9 +65,9 @@ jobs:
       RELEASE_ARCH: ${{ matrix.arch }}
       MACOSX_DEPLOYMENT_TARGET: '14.4'
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false }
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with: { python-version: '3.12' }
       - name: Linux build tools
         if: matrix.os == 'linux'
@@ -108,7 +108,7 @@ jobs:
         if: matrix.os == 'windows'
         shell: powershell
         run: choco install nsis --version=3.11 -y --no-progress
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         id: sdk
         with:
           path: |
@@ -139,7 +139,7 @@ jobs:
             printf '%s\n' "::error::${msg:0:3500}"
             exit "$code"
           fi
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         if: steps.sdk.outputs.cache-hit != 'true'
         with:
           path: |
@@ -181,7 +181,7 @@ jobs:
         run: bash scripts/ci/smoke-distros.sh
       - name: Upload package candidates
         if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.packages)
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-${{ matrix.os }}-${{ matrix.arch }}
           path: |
@@ -197,7 +197,7 @@ jobs:
           if-no-files-found: error
       - name: Upload diagnostics
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: diagnostics-${{ matrix.os }}-${{ matrix.arch }}
           path: |
@@ -220,7 +220,7 @@ jobs:
           - { arch: x86, platform: linux/386, image: i386/debian:12 }
           - { arch: armv7, platform: linux/arm/v7, image: arm32v7/debian:12 }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false }
       - name: Register distribution-provided user-mode emulation
         run: |
@@ -233,7 +233,7 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
           RELEASE_ARCH: ${{ matrix.arch }}
         run: docker run --rm --platform "$PLATFORM" -e RELEASE_ARCH -v "$PWD:/src" -w /src "$IMAGE" bash scripts/ci/legacy-linux.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-linux-${{ matrix.arch }}
           # Release asset types only, as in the native job; finalize rejects anything else.
@@ -255,14 +255,14 @@ jobs:
     timeout-minutes: 360
     env: { RELEASE_ARCH: x86 }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false }
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with: { python-version: '3.12', architecture: x64 }
       - run: choco install nsis --version=3.11 -y --no-progress
       - shell: powershell
         run: .\scripts\ci\run-windows.ps1 -Architecture x86
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-windows-x86
           # Release asset types only, as in the native job; finalize rejects anything else.
@@ -286,11 +286,11 @@ jobs:
     runs-on: ubuntu-22.04
     permissions: { contents: write }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false, fetch-depth: 0 }
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with: { python-version: '3.12' }
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: candidate-*
           merge-multiple: true
@@ -315,11 +315,11 @@ jobs:
     runs-on: ubuntu-22.04
     permissions: { contents: read }
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with: { persist-credentials: false }
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with: { python-version: '3.12' }
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: candidate-*
           merge-multiple: true
